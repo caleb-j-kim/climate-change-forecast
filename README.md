@@ -17,7 +17,7 @@ Ensure the following are installed before proceeding:
 ### Setup Instructions
 1. Clone this repository:
    ```sh
-   git clone https://github.com/your-repo/climate-change-forecast.git
+   git clone https://github.com/caleb-j-kim/climate-change-forecast.git
    cd climate-change-forecast
    ```
 2. Install dependencies:
