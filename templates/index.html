@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Climate Forecast</title>
+</head>
+<body>
+    <h1>Climate Change Forecast</h1>
+    <form action="/predict" method="get">
+        <label for="country">Country:</label>
+        <select name="country" required>
+            {% for country in countries %}
+                <option value="{{ country }}">{{ country }}</option>
+            {% endfor %}
+        </select>
+        <br><br>
+
+        <label for="year_start">Start Year:</label>
+        <input type="number" name="year_start" id="year_start" placeholder="e.g. 1950"><br><br>
+
+        <label for="year_end">End Year:</label>
+        <input type="number" name="year_end" id="year_end" placeholder="e.g. 2020"><br><br>
+
+        <script>
+            const countrySelect = document.querySelector('select[name="country"]');
+            const yearStartInput = document.getElementById('year_start');
+            const yearEndInput = document.getElementById('year_end');
+
+            async function updateYearBounds(country) {
+                const response = await fetch(`/year-range?country=${encodeURIComponent(country)}`);
+                const data = await response.json();
+
+                yearStartInput.min = data.min_year;
+                yearStartInput.max = data.max_year;
+                yearStartInput.value = data.min_year;
+
+                yearEndInput.min = data.min_year;
+                yearEndInput.max = data.max_year;
+                yearEndInput.value = data.max_year;
+            }
+
+            countrySelect.addEventListener("change", function() {
+                updateYearBounds(this.value);
+            });
+
+            // Load bounds for default selected country
+            document.addEventListener("DOMContentLoaded", function () {
+                updateYearBounds(countrySelect.value);
+            });
+        </script>
+
+        <button type="submit">Generate Forecast</button>
+    </form>
+</body>
+
+
+</html>
