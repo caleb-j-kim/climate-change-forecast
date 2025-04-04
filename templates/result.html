@@ -1,12 +1,13 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Temperature Trend Result</title>
+    <title>Forecast Result</title>
 </head>
 <body>
-    <h2>Temperature Trend in {{ country }}</h2>
-    <img src="{{ image_path }}" alt="Temperature Trend" width="700">
+    <h1>Forecast Result</h1>
+    <p>Location: {{ location }}</p>
+    <img src="{{ url_for('static', filename=image_path) }}" alt="Forecast Plot">
     <br><br>
-    <a href="/">← Run another forecast</a>
+    <a href="/">Back to Forecast</a>
 </body>
 </html>

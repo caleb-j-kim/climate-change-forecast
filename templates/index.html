@@ -2,55 +2,80 @@
 <html>
 <head>
     <title>Climate Forecast</title>
+    <style>
+        .spinner {
+            display: none;
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(0,0,0,0.2);
+            border-top: 4px solid black;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 10px auto;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
 </head>
 <body>
     <h1>Climate Change Forecast</h1>
-    <form action="/predict" method="get">
-        <label for="country">Country:</label>
-        <select name="country" required>
-            {% for country in countries %}
-                <option value="{{ country }}">{{ country }}</option>
-            {% endfor %}
-        </select>
-        <br><br>
+
+    <form action="/predict" method="get" id="forecast-form">
+        <label for="type">Location Type:</label>
+        <select name="type" id="type" required>
+            <option value="country">Country</option>
+            <option value="state">State</option>
+            <option value="city">City</option>
+        </select><br><br>
+
+        <label for="location">Select:</label>
+        <select name="location" id="location" required></select><br><br>
 
         <label for="year_start">Start Year:</label>
-        <input type="number" name="year_start" id="year_start" placeholder="e.g. 1950"><br><br>
+        <input type="number" name="year_start" id="year_start"><br><br>
 
         <label for="year_end">End Year:</label>
-        <input type="number" name="year_end" id="year_end" placeholder="e.g. 2020"><br><br>
+        <input type="number" name="year_end" id="year_end"><br><br>
 
-        <script>
-            const countrySelect = document.querySelector('select[name="country"]');
-            const yearStartInput = document.getElementById('year_start');
-            const yearEndInput = document.getElementById('year_end');
-
-            async function updateYearBounds(country) {
-                const response = await fetch(`/year-range?country=${encodeURIComponent(country)}`);
-                const data = await response.json();
-
-                yearStartInput.min = data.min_year;
-                yearStartInput.max = data.max_year;
-                yearStartInput.value = data.min_year;
-
-                yearEndInput.min = data.min_year;
-                yearEndInput.max = data.max_year;
-                yearEndInput.value = data.max_year;
-            }
-
-            countrySelect.addEventListener("change", function() {
-                updateYearBounds(this.value);
-            });
-
-            // Load bounds for default selected country
-            document.addEventListener("DOMContentLoaded", function () {
-                updateYearBounds(countrySelect.value);
-            });
-        </script>
+        <div class="spinner" id="loading-spinner"></div>
 
         <button type="submit">Generate Forecast</button>
     </form>
+
+    <script>
+        const typeSelect = document.getElementById("type");
+        const locationSelect = document.getElementById("location");
+        const yearStart = document.getElementById("year_start");
+        const yearEnd = document.getElementById("year_end");
+        const spinner = document.getElementById("loading-spinner");
+
+        async function updateLocations(type) {
+            spinner.style.display = "block";
+            const res = await fetch(`/locations?type=${type}`);
+            const data = await res.json();
+            locationSelect.innerHTML = data.map(loc => `<option value="${loc}">${loc}</option>`).join('');
+            spinner.style.display = "none";
+            updateYearRange(type, locationSelect.value);
+        }
+
+        async function updateYearRange(type, location) {
+            const res = await fetch(`/year-range?type=${type}&location=${encodeURIComponent(location)}`);
+            const { min_year, max_year } = await res.json();
+            yearStart.min = min_year;
+            yearStart.max = max_year;
+            yearStart.value = min_year;
+            yearEnd.min = min_year;
+            yearEnd.max = max_year;
+            yearEnd.value = max_year;
+        }
+
+        typeSelect.addEventListener("change", () => updateLocations(typeSelect.value));
+        locationSelect.addEventListener("change", () => updateYearRange(typeSelect.value, locationSelect.value));
+
+        document.addEventListener("DOMContentLoaded", () => {
+            updateLocations(typeSelect.value);
+        });
+    </script>
 </body>
-
-
 </html>

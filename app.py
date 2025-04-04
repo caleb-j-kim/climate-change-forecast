@@ -1,80 +1,84 @@
-from flask import Flask, request, render_template
+from flask import Flask, request, render_template, jsonify
 import os
+import pandas as pd
 from models.linear_regression import train_temperature_model
 import shutil
-import pandas as pd
+from functools import lru_cache
 
-# Get the absolute path to the current project directory
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-# Absolute path to the country-level dataset
-DATASET_PATH = os.path.join(BASE_DIR, "datasets", "GlobalLandTemperaturesByCountry.csv")
-
-
+# Initialize Flask app
 app = Flask(__name__)
+
+# Base directory and dataset paths
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATASETS = {
+    "country": os.path.join(BASE_DIR, "datasets", "GlobalLandTemperaturesByCountry.csv"),
+    "state": os.path.join(BASE_DIR, "datasets", "GlobalLandTemperaturesByState.csv"),
+    "city": os.path.join(BASE_DIR, "datasets", "GlobalLandTemperaturesByCity.csv")
+}
+
+# Caching function to improve load performance
+@lru_cache(maxsize=None)
+def load_location_options(location_type):
+    path = DATASETS.get(location_type)
+    if not path or not os.path.exists(path):
+        return []
+    df = pd.read_csv(path, usecols=["Country"] if location_type == "country" else ["State"] if location_type == "state" else ["City"])
+    column = "Country" if location_type == "country" else "State" if location_type == "state" else "City"
+    return sorted(df[column].dropna().unique())
 
 @app.route("/")
 def index():
-    try:
-        # Load dataset and extract sorted list of countries
-        df = pd.read_csv(DATASET_PATH)
-        countries = sorted(df["Country"].dropna().unique())
-    except Exception as e:
-        countries = ["United States", "India", "Brazil"] #fallback defaults
-        print(f"Warning: Could not load countries: {e}")
-
+    countries = load_location_options("country")
     return render_template("index.html", countries=countries)
 
-from flask import jsonify
+@app.route("/locations")
+def get_locations():
+    location_type = request.args.get("type")
+    options = load_location_options(location_type)
+    return jsonify(options)
 
 @app.route("/year-range")
 def year_range():
-    country = request.args.get("country")
+    location_type = request.args.get("type")
+    location = request.args.get("location")
+    path = DATASETS.get(location_type)
+
     try:
-        df = pd.read_csv(DATASET_PATH)
-        df = df[df["Country"] == country]
+        df = pd.read_csv(path, usecols=["dt", location_type.capitalize()])
+        df = df[df[location_type.capitalize()] == location]
         df["dt"] = pd.to_datetime(df["dt"])
         years = df["dt"].dt.year
         return jsonify({
             "min_year": int(years.min()),
             "max_year": int(years.max())
         })
-    except Exception as e:
-        return jsonify({"min_year": 1800, "max_year": 2020})  # fallback
+    except Exception:
+        return jsonify({"min_year": 1743, "max_year": 2013})
 
-
-# Prediction route accepts user input and displays forecast chart
 @app.route("/predict")
 def predict():
-    # Parse query parameters from form
-    country = request.args.get("country", default = "United States")
-    year_start = request.args.get("year_start", type = int, default = None)
-    year_end = request.args.get("year_end", type = int, default = None)
+    location_type = request.args.get("type", default="country")
+    location = request.args.get("location", default="United States")
+    year_start = request.args.get("year_start", type=int)
+    year_end = request.args.get("year_end", type=int)
 
-    # Set output/static file
-    filename = f"{country.replace(' ', '_')}_temperature_trend.png"
+    filename = f"{location_type}_{location.replace(' ', '_')}_temperature_trend.png"
     output_file = os.path.join("outputs", filename)
     static_file = os.path.join("static", filename)
 
     try:
-        # Train model and save plots
         train_temperature_model(
-            country = country,
-            year_start = year_start,
-            year_end = year_end,
-            save_plot = True,
-            show_plot = False,
-            output_file = output_file,
-            dataset_path = DATASET_PATH
+            location=location,
+            year_start=year_start,
+            year_end=year_end,
+            save_plot=True,
+            show_plot=False,
+            output_file=output_file,
+            dataset_path=DATASETS[location_type],
+            location_col=location_type.capitalize()
         )
-        
-        # Copy plot to static folder so browser can load it
         shutil.copy(output_file, static_file)
-
-        # Render image from static/filename
-        image_url = os.path.join("static", filename)
-        return render_template("result.html", country = country, image_path = image_url)
-
+        return render_template("result.html", location=location, image_path=filename)
     except ValueError as e:
         return f"<h3>Input Error: {e}</h3>", 400
     except FileNotFoundError as e:
@@ -84,14 +88,3 @@ def predict():
 
 if __name__ == "__main__":
     app.run(debug=True)
-=======
-from flask import Flask
-app = Flask(__name__)
-
-@app.route("/")
-def home():
-    return "Hello, World!"
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
->>>>>>> af5d17bd622dabbb4f40007fe8988b99aea7551b

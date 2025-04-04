@@ -1,1 +1,6 @@
-*.pyc\n__pycache__/\n.venv/\noutputs/\n*.png
+*.pyc
+__pycache__/
+.venv/
+outputs/
+*.png
+datasets/*.csv
