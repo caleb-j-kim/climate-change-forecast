@@ -6,8 +6,12 @@
 <body>
     <h1>Forecast Result</h1>
     <p>Location: {{ location }}</p>
+
+    <!-- Display the generated forecast plot -->
     <img src="{{ url_for('static', filename=image_path) }}" alt="Forecast Plot">
+
     <br><br>
+    <!-- Return to input form -->
     <a href="/">Back to Forecast</a>
 </body>
 </html>

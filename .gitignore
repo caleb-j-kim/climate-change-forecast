@@ -1,6 +1,19 @@
+# Ignore Python bytecode
 *.pyc
 __pycache__/
+
+# Ignore local virtual environments
 .venv/
-outputs/
+
+# Ignore all output images, but keep the .gitkeep placeholder
+outputs/*
+!outputs/.gitkeep
+
+# Ignore all PNG files (they're tracked by Git LFS or local only)
 *.png
+
+# Ignore CSV datasets (too large for Git; local-only)
 datasets/*.csv
+
+# Keep README.md inside datasets/ (documents the local expectation)
+!datasets/README.md

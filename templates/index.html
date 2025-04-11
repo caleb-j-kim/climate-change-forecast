@@ -21,6 +21,7 @@
 <body>
     <h1>Climate Change Forecast</h1>
 
+    <!-- Form to collect user input for forecast parameters -->
     <form action="/predict" method="get" id="forecast-form">
         <label for="type">Location Type:</label>
         <select name="type" id="type" required>
@@ -38,11 +39,13 @@
         <label for="year_end">End Year:</label>
         <input type="number" name="year_end" id="year_end"><br><br>
 
+        <!-- Loading spinner shown during data fetch -->
         <div class="spinner" id="loading-spinner"></div>
 
         <button type="submit">Generate Forecast</button>
     </form>
 
+    <!-- JS logic to update location and year options dynamically -->
     <script>
         const typeSelect = document.getElementById("type");
         const locationSelect = document.getElementById("location");
@@ -50,6 +53,7 @@
         const yearEnd = document.getElementById("year_end");
         const spinner = document.getElementById("loading-spinner");
 
+        // Fetch location options when location type is changed
         async function updateLocations(type) {
             spinner.style.display = "block";
             const res = await fetch(`/locations?type=${type}`);
@@ -59,6 +63,7 @@
             updateYearRange(type, locationSelect.value);
         }
 
+        // Fetch valid year range when a location is selected
         async function updateYearRange(type, location) {
             const res = await fetch(`/year-range?type=${type}&location=${encodeURIComponent(location)}`);
             const { min_year, max_year } = await res.json();
@@ -73,6 +78,7 @@
         typeSelect.addEventListener("change", () => updateLocations(typeSelect.value));
         locationSelect.addEventListener("change", () => updateYearRange(typeSelect.value, locationSelect.value));
 
+        // Trigger initial population of options on load
         document.addEventListener("DOMContentLoaded", () => {
             updateLocations(typeSelect.value);
         });
