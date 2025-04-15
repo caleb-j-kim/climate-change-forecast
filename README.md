@@ -85,3 +85,23 @@ Run the application using one of the following methods:
    ```
 
 ---
+
+## Backend Testing
+1. Train models:
+   ``` sh
+   Invoke-RestMethod -Method GET -Uri "http://localhost:5000/train"
+
+2. Test models:
+   ``` sh
+   Invoke-RestMethod -Method GET -Uri "http://localhost:5000/test"
+
+3. Predict climate:
+   ``` sh
+Invoke-RestMethod -Method POST -Uri "http://localhost:5000/predict" `
+    -Body '{"dataset": "country", "year": 2020, "month": 07, "location": "United States"}' `
+    -ContentType "application/json"
+
+   ``` sh
+Invoke-RestMethod -Method POST -Uri "http://localhost:5000/predict" `
+    -Body '{"dataset": "city", "year": 2000, "month": 7, "location": "New York"}' `
+    -ContentType "application/json"
