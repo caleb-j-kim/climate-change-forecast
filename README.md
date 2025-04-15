@@ -103,5 +103,9 @@ Invoke-RestMethod -Method POST -Uri "http://localhost:5000/predict" `
 
    ``` sh
 Invoke-RestMethod -Method POST -Uri "http://localhost:5000/predict" `
-    -Body '{"dataset": "city", "year": 2000, "month": 7, "location": "New York"}' `
+    -Body '{"dataset": "city", "year": 2000, "month": 7, "location": {"city": "New York", "country": "United States"}}' `
+    -ContentType "application/json"
+
+Invoke-RestMethod -Method POST -Uri "http://localhost:5000/predict" `
+    -Body '{"dataset": "state", "year": 2000, "month": 7, "location": {"state": "Virginia", "country": "United States"}}' `
     -ContentType "application/json"

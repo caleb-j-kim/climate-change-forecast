@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-from backend.short_term_predictions.random_forest import train_all, test_all, predict_rf
+from backend.predictions.random_forest import train_all, test_all, predict_rf
 
 app = Flask(__name__)
 
