@@ -4,6 +4,10 @@ import pandas as pd
 from models.linear_regression import train_temperature_model
 import shutil
 from functools import lru_cache
+from utils.s3_utils import upload_image_to_s3
+from utils.dynamo_utils import save_forecast_to_dynamodb
+import uuid
+
 
 # Initialize Flask application
 app = Flask(__name__)
@@ -15,6 +19,9 @@ DATASETS = {
     "state": os.path.join(BASE_DIR, "datasets", "GlobalLandTemperaturesByState.csv"),
     "city": os.path.join(BASE_DIR, "datasets", "GlobalLandTemperaturesByCity.csv")
 }
+
+S3_BUCKET = "climate-forecast-results"  # ← Replace with your actual bucket
+DYNAMO_TABLE = "ClimateForecasts"
 
 # Cache location options to avoid repeated disk reads and improve performance
 @lru_cache(maxsize=None)
@@ -82,9 +89,14 @@ def predict():
     year_end = request.args.get("year_end", type=int)
 
     # Output file paths
-    filename = f"{location_type}_{location.replace(' ', '_')}_temperature_trend.png"
+
+
+    #filename = f"{location_type}_{location.replace(' ', '_')}_temperature_trend.png"
+    safe_loc = location.replace(" ", "_")
+    filename = f"{location_type}_{safe_loc}_temperature_trend.png"
     output_file = os.path.join("outputs", filename)
-    static_file = os.path.join("static", filename)
+    s3_key = f"forecasts/{location_type}/{filename}"
+    #static_file = os.path.join("static", filename)
 
     try:
         # Train and generate plot
@@ -99,10 +111,31 @@ def predict():
             location_col=location_type.capitalize()
         )
 
-        # Copy generated plot to static folder for rendering
-        shutil.copy(output_file, static_file)
+        # Upload image to S3
+        #s3_key = f"forecasts/{location_type}/{filename}"
+        s3_url = upload_image_to_s3(output_file, S3_BUCKET, s3_key)
+        #print(f"[DEBUG] S3 URL: {s3_url}")
 
-        return render_template("result.html", location=location, image_path=filename)
+
+        # Save metadata to DynamoDB
+        save_forecast_to_dynamodb(
+            table_name=DYNAMO_TABLE,
+            location_type=location_type,
+            location=location,
+            s3_url=s3_url,
+            year_start=year_start,
+            year_end=year_end
+        )
+
+        # Copy generated plot to static folder for rendering
+        #shutil.copy(output_file, static_file)
+
+        #return render_template("result.html", location=location, image_path=filename)
+
+        #loads the image from the cloud
+        print(f"[DEBUG] S3 URL: {s3_url}")  # Should print https://...
+        return render_template("result.html", location=location, image_path=s3_url)
+
 
     except ValueError as e:
         return f"<h3>Input Error: {e}</h3>", 400

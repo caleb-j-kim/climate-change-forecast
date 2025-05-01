@@ -83,7 +83,9 @@
     <h1>Forecast Result</h1>
     <p><strong>Location:</strong> {{ location }}</p>
 
-    <img src="{{ url_for('static', filename=image_path) }}" alt="Forecast Plot">
+    <!-- <img src="{{ url_for('static', filename=image_path) }}" alt="Forecast Plot"> -->
+    <img src="{{ image_path }}" alt="Forecast Plot">
+
 
     <br>
     <a href="/">← Back to Forecast</a>
