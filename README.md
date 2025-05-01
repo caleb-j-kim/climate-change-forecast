@@ -66,6 +66,13 @@ Run the application using one of the following methods:
    ```sh
    docker run -p 5000:5000 -v "$(pwd)":/app climate-change-forecast
    ```
+4. AWS Run
+```sh
+docker run -e AWS_ACCESS_KEY_ID=putKeyHere \
+           -e AWS_SECRET_ACCESS_KEY=putKeyHere \
+           -e AWS_DEFAULT_REGION=us-east-2 \
+           -p 5050:5000 climate-change-forecast
+```
 
 ---
 
