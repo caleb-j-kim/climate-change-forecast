@@ -1,3 +1,4 @@
+# py app.py or python app.py to run app on Python backend
 from flask import Flask, request, render_template, jsonify
 import os
 import pandas as pd
@@ -7,6 +8,10 @@ from openai import OpenAI
 from dotenv import load_dotenv
 
 from backend.predictions.ensemble import train_ensemble, test_ensemble, predict_ensemble
+from backend.apis.tomorrow_io import fetch_daily_timeline, fetch_random_city_forecast, fetch_random_country_forecast, fetch_random_state_forecast
+from functools import lru_cache
+from utils.s3_utils import upload_image_to_s3
+from utils.dynamo_utils import save_forecast_to_dynamodb
 
 # === Init ===
 load_dotenv()
@@ -80,7 +85,44 @@ def train_endpoint():
 @app.route("/test", methods=["GET"])
 def test_endpoint():
     results = test_ensemble()
-    return jsonify(results)
+    return jsonify(["Successfully tested all models."] + results)
+
+@app.route("/weather/timeline", methods=["GET"])
+def weather_timeline_endpoint():
+    try:
+        timeline = fetch_daily_timeline()
+        intervals = timeline["data"]["timelines"][0]["intervals"]
+        return jsonify(intervals), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+@app.route("/weather/forecast/random_country", methods=["GET"])
+def random_country_forecast():
+    try:
+        country, full = fetch_random_country_forecast()
+        intervals = full["data"]["timelines"][0]["intervals"]
+        return jsonify({"type":"country", "location": country, "forecast": intervals}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/weather/forecast/random_city", methods=["GET"])
+def random_city_forecast():
+    try:
+        city, full = fetch_random_city_forecast()
+        intervals = full["data"]["timelines"][0]["intervals"]
+        return jsonify({"type":"city", "location": city, "forecast": intervals}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/weather/forecast/random_state", methods=["GET"])
+def random_state_forecast():
+    try:
+        state, full = fetch_random_state_forecast()
+        intervals = full["data"]["timelines"][0]["intervals"]
+        return jsonify({"type":"state", "location": state, "forecast": intervals}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route("/predict", methods=["POST"])
 def predict_endpoint():
@@ -116,4 +158,9 @@ def load_location_options(location_type):
     return sorted(df[col].dropna().unique())
 
 if __name__ == "__main__":
+    
+    # Perform both GET calls to train and test all models on startup but only once.
+    #warm_up_models()
+
+    # now start accepting requests
     app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=False)

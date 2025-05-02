@@ -122,6 +122,20 @@ Invoke-RestMethod -Method POST -Uri "http://localhost:5000/predict" `
     -Body '{"dataset": "city", "year": 2000, "month": 7, "location": {"city": "New York", "country": "United States"}}' `
     -ContentType "application/json"
 
+   ``` sh
 Invoke-RestMethod -Method POST -Uri "http://localhost:5000/predict" `
     -Body '{"dataset": "state", "year": 2000, "month": 7, "location": {"state": "Virginia", "country": "United States"}}' `
     -ContentType "application/json"
+
+4. Tomorrow.io tests:
+   ``` sh
+Invoke-RestMethod http://localhost:5000/weather/forecast/random_country |
+  ConvertTo-Json -Depth 5
+
+   ``` sh
+Invoke-RestMethod http://localhost:5000/weather/forecast/random_city    |
+  ConvertTo-Json -Depth 5
+
+   ``` sh
+Invoke-RestMethod http://localhost:5000/weather/forecast/random_state   |
+  ConvertTo-Json -Depth 5
