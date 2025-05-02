@@ -1,11 +1,11 @@
 # py app.py or python app.py to run app on Python backend
-
 from flask import Flask, request, render_template, jsonify
 import os
 import pandas as pd
 import uuid
 import shutil
 from backend.predictions.ensemble import train_ensemble, test_ensemble, predict_ensemble
+from backend.apis.tomorrow_io import fetch_daily_timeline, fetch_random_city_forecast
 from functools import lru_cache
 from utils.s3_utils import upload_image_to_s3
 from utils.dynamo_utils import save_forecast_to_dynamodb
@@ -63,6 +63,24 @@ def test_endpoint():
     results = test_ensemble()
     return jsonify(["Successfully tested all models."] + results)
 
+@app.route("/weather/timeline", methods=["GET"])
+def weather_timeline_endpoint():
+    try:
+        timeline = fetch_daily_timeline()
+        intervals = timeline["data"]["timelines"][0]["intervals"]
+        return jsonify(intervals), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+@app.route("/weather/forecast", methods=["GET"])
+def weather_forecast_endpoint():
+    try:
+        city, full = fetch_random_city_forecast()
+        intervals = full["data"]["timelines"][0]["intervals"]
+        return jsonify({"city": city, "forecast": intervals}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/predict", methods=["POST"])
 def predict_endpoint():
     payload = request.get_json()
@@ -91,7 +109,7 @@ def predict_endpoint():
 if __name__ == "__main__":
     
     # Perform both GET calls to train and test all models on startup but only once.
-    warm_up_models()
+    #warm_up_models()
 
     # now start accepting requests
     app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=False)

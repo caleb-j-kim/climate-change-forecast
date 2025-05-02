@@ -6,3 +6,5 @@ matplotlib
 seaborn
 boto3
 xgboost
+requests
+python-dotenv
