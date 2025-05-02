@@ -8,3 +8,4 @@ boto3
 xgboost
 openai
 python-dotenv
+openai
