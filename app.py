@@ -59,108 +59,30 @@ def test_endpoint():
 
 @app.route("/predict", methods=["POST"])
 def predict_endpoint():
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "No JSON payload provided."}), 400
-    
-    dataset = data.get("dataset", "country").lower()
-    try:
-        year = int(data.get("year"))
-        month = int(data.get("month"))
-    except (TypeError, ValueError):
-        return jsonify({"error": "Please provide valid integer values for 'year' and 'month'."}), 400
-    location = data.get("location", None)
-    
-    try:
-        prediction = predict_lr(dataset, year, month, location) # Should be ensemble method at the end
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
-
-'''@app.route("/predict")
-def predict():
-    """
-    Handles the prediction request and returns a rendered plot image of the forecast.
-    Includes error handling for common input and file issues.
-    """
-    location_type = request.args.get("type", default="country")
-    location = request.args.get("location", default="United States")
-    year_start = request.args.get("year_start", type=int)
-    year_end = request.args.get("year_end", type=int)
-
-    # Output file paths
-
-    #filename = f"{location_type}_{location.replace(' ', '_')}_temperature_trend.png"
-    safe_loc = location.replace(" ", "_")
-    filename = f"{location_type}_{safe_loc}_temperature_trend.png"
-    output_file = os.path.join("outputs", filename)
-    s3_key = f"forecasts/{location_type}/{filename}"
-    #static_file = os.path.join("static", filename)
+    payload = request.get_json()
 
     try:
+        ds = payload["dataset"]
+        yr = payload["year"]
+        mnth = payload["month"]
+        loc = payload.get("location")
 
-        prediction = predict_rf(dataset, year, month, location)
-
-        # Train and generate plot
-        train_temperature_model(
-            location=location,
-            year_start=year_start,
-            year_end=year_end,
-            save_plot=True,
-            show_plot=False,
-            output_file=output_file,
-            dataset_path=DATASETS[location_type],
-            location_col=location_type.capitalize()
-        )
-
-        # Upload image to S3
-        #s3_key = f"forecasts/{location_type}/{filename}"
-        s3_url = upload_image_to_s3(output_file, S3_BUCKET, s3_key)
-        #print(f"[DEBUG] S3 URL: {s3_url}")
-
-
-        # Save metadata to DynamoDB
-        save_forecast_to_dynamodb(
-            table_name=DYNAMO_TABLE,
-            location_type=location_type,
-            location=location,
-            s3_url=s3_url,
-            year_start=year_start,
-            year_end=year_end
-        )
-
-        # Copy generated plot to static folder for rendering
-        #shutil.copy(output_file, static_file)
-
-        #return render_template("result.html", location=location, image_path=filename)
-
-        #loads the image from the cloud
-        print(f"[DEBUG] S3 URL: {s3_url}")  # Should print https://...
-        return render_template("result.html", location=location, image_path=s3_url)
-    
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
-    
-    return jsonify({
-        "dataset": dataset,
-        "year": year,
-        "month": month,
-        "location": location,
-        "predicted_temperature": prediction
-    }) 
+        if ds in ("country", "city", "state"):
+            # change to ensemble method at the end
+            result = predict_lr(ds, yr, mnth, location=loc)
+        else:
+            raise ValueError(f"Unknown dataset: {ds}")
+        
+        # Return JSON + status code
+        return jsonify(result), 200
 
     except ValueError as e:
-        return f"<h3>Input Error: {e}</h3>", 400
-    except FileNotFoundError as e:
-        return f"<h3>File Error: {e}</h3>", 404
-        year = int(data.get("year"))
-        month = int(data.get("month"))
-    except (TypeError, ValueError):
-        return jsonify({"error": "Please provide valid integer values for 'year' and 'month'."}), 400
-    location = data.get("location", None)
-
-    (Leave this part out for now)
-'''
+        # bad input, missing location, etc
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        # something else went wrong
+        return jsonify({"error": "Internal server error"}), 500
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=True)
     

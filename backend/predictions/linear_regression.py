@@ -2,7 +2,6 @@
 
 import os
 import pandas as pd
-import xgboost as xgb # For creation of DMatrix with feature names
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')  # Enables plotting in headless environments (e.g., server-side)
@@ -16,7 +15,7 @@ from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
 lr_models = {}
 
 """
-    Preprocess each dataset (country, state, city) to clean up data and prepare it for training.
+    Preprocess each dataset (country, state, city) to clean up data and prepare it for training and higher accuracy.
     This includes:
     - Converting date columns to datetime format
     - Dropping rows with missing values in required columns
@@ -31,15 +30,15 @@ def preprocess_country(file_path, min_year=None, max_year=None, sample_frac=None
     df = pd.read_csv(file_path)
 
     # Convert data column to datetime and drop missing values
-    df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+    df['dt'] = pd.to_datetime(df['dt'], errors='coerce')
     df.dropna(subset=['dt', 'AverageTemperature', 'Country'], inplace=True)
 
     # Clean up Country strings to avoid mismatch (e.g. "United Sates" vs "   United  States")
     df['Country'] = df['Country'].astype(str).str.strip().str.lower()
 
     # Extract year, month, and filter by years
-    df['year'] = data['dt'].dt.year
-    df['month'] = data['dt'].dt.month
+    df['year'] = df['dt'].dt.year
+    df['month'] = df['dt'].dt.month
 
     # Apply year filters if provided
     if min_year is not None:
@@ -49,10 +48,10 @@ def preprocess_country(file_path, min_year=None, max_year=None, sample_frac=None
 
     # Sampling for speed (e.g. sample_frac=0.2 keeps 20% of the data)
     if sample_frac is not None and 0 < sample_frac < 1.0:
-        data = data.sample(frac=sample_frac, random_state=42)
+        df = df.sample(frac=sample_frac, random_state=42)
 
     # Clean location strings: strip whitespace
-    df['Country'] = data['Country'].astype(str).str.strip().str.lower()
+    df['Country'] = df['Country'].astype(str).str.strip().str.lower()
 
     # Scale numerical values
     scaler = StandardScaler()
@@ -78,7 +77,7 @@ def preprocess_city(file_path, min_year=None, max_year=None, sample_frac=None):
     required = ['dt', 'AverageTemperature', 'City', 'Country']
 
     # Drop rows missing any of the required columns
-    df = df.dropna(subset=required, inplace=True)
+    df = df.dropna(subset=required)
 
     # Convert dt column to datetime
     df['dt'] = pd.to_datetime(df['dt'], errors='coerce')
@@ -95,6 +94,10 @@ def preprocess_city(file_path, min_year=None, max_year=None, sample_frac=None):
 
     # Clean up Country strings (remove extra whitespace and force lowercase)
     df['Country'] = df['Country'].astype(str).str.strip().str.lower()
+
+    # Extract year and month
+    df['year'] = df['dt'].dt.year
+    df['month'] = df['dt'].dt.month
 
     # Apply year filters if provided
     if min_year is not None:
@@ -184,14 +187,14 @@ def preprocess_state(file_path, min_year=None, max_year=None, sample_frac=None):
 
 """
     Trains a linear regression model to forecast average temperature trends for a specified location.
-    Saves or displays a plot of the prediction based on input flags.
+    - The trained model is saved for future predictions.
 """
 
 def train_country(file_path):
 
     # Enter preprocessing first
     try:
-        df, scaler, le = preprocess_country(file_path, min_year=1800, max_year=2100, sample_frac=1)
+        df, le, scaler = preprocess_country(file_path, min_year=1800, max_year=2100, sample_frac=1)
     
     except Exception as e:
         print("Error during preprocessing {file_path}: {e}")
@@ -221,7 +224,7 @@ def train_city(file_path):
         df, scaler, (le_city, le_country) = preprocess_city(file_path, min_year=1800, max_year=2100, sample_frac=1)
     
     except Exception as e:
-        print("Error during preprocessing {file_path}: {e}")
+        print(f"Error during preprocessing {file_path}: {e}")
         return
 
     # Use year, month, and encoded city as features
@@ -266,7 +269,7 @@ def train_state(file_path):
         'model': model,
         'features': ['year', 'month', 'State_encoded', 'Country_encoded'],
         'scaler': scaler,
-        'le': {'City': le_state, 'Country': le_country}
+        'le': {'State': le_state, 'Country': le_country}
     }
 
     print("Successfully trained Linear Regression model for state dataset.")
@@ -394,7 +397,7 @@ def test_all(): # Test all models using one function that's called by one singul
     return results
 
 """
-    Predicts the average temperature for a given location using the trained model.
+    Predicts the average temperature for a given location using the trained Linear Regression model.
     The location can be a country, state, or city.
     The function takes the location name, year, and month as input parameters.
     It returns the predicted average temperature for that location as both a value and a plot.
@@ -405,93 +408,68 @@ def predict_lr(dataset, year, month, location=None,
                save_plot=True, show_plot=False,
                output_file="outputs/linear_regression_prediction_plot.png"):
     ds = dataset.lower()
+    print("DEBUG predict_lr ds:", ds)
     if ds not in lr_models:
         raise ValueError(f"Model for {ds} not found. Available models: {list(lr_models.keys())}")
     
     # Variables for plotting and prediction
+    print("b")
     info = lr_models[ds]
     features = info['features']
     model = info['model']
     scaler = info['scaler']
-    encoders = info['le']
+    le = info['le']
 
-    # Scale years and months
-    input_df = pd.DataFrame([[year, month]], columns=['year', 'month'])
+    # Scale numerical values (year, month) for prediction
+    print("touch")
     if scaler:
-        vals = scaler.transform(input_df)
-        input_features = list(vals[0]) # Convert to list for easier manipulation
+        y_s, m_s = scaler.transform([[year, month]])[0]
+        print("touched")
     else:
-        input_features = [year, month]
+        y_s, m_s = year, month
+        print("bo")
 
-    # Encode location if needed
+    # Build feature row
     if ds == 'country':
-        # Validation user input
-        if not isinstance(location, str): 
-            raise ValueError("Location must be a string for country dataset.")
+        print("boo")
+        if not isinstance(location, str):
+            raise ValueError("Country location must be a string.")
         loc_clean = location.strip().lower()
-
-        try:
-            code = encoders.transform([loc_clean])[0]
-        except Exception:
-            raise ValueError(f"Location '{loc_clean}' not found.")
-        input_features.append(int(code))
+        print("booo")
+        code = le.transform([loc_clean])[0] # Transform to numeric code
+        print(".")
+        row = [y_s, m_s, code]
+        print("Country pt1 success.")
 
     elif ds == 'city':
-        # Validation user input
-        if not isinstance(location, dict):
-            raise ValueError("A 'location' parameter of city and country is required for the city dataset.")
-        city_in = str(location.get('city', '')).strip().lower()
-        country_in = str(location.get('country', '')).strip().lower()
-
-        if not city_in or not country_in:
-            raise ValueError("Both 'city' and 'country' keys must be provided.")
-        
-        enc_city = encoders['City']
-        enc_country = encoders['Country']
-
-        try: 
-            city_code = enc_city.transform([city_in])[0]
-        except:
-            raise ValueError(f"City '{city_in}' not found. Available cities: {enc_city.classes_.tolist()}")
-        try:
-            country_code = enc_country.transform([country_in])[0]
-        except:
-            raise ValueError(f"Country '{country_in}' not found. Available countries: {enc_country.classes_.tolist()}")
-        input_features += [int(city_code), int(country_code)]
+        if not isinstance(location, dict) or "city" not in location or "country" not in location:
+            raise ValueError("City location must be a dictionary with 'city' and 'country' keys.")
+        city_code = le["City"].transform([location["city"].strip().lower()])[0]
+        country_code = le["Country"].transform([location["country"].strip().lower()])[0]
+        row = [y_s, m_s, city_code, country_code]
 
     elif ds == 'state':
-        # Validation user input
-        if not isinstance(location, dict):
-            raise ValueError("A 'location' parameter of state and country is required for the state dataset.")
-        state_in = str(location.get('state', '')).strip().lower()
-        country_in = str(location.get('country', '')).strip().lower()
-
-        if not state_in or not country_in:
-            raise ValueError("Both 'state' and 'country' keys must be provided.")
-
-        enc_state = encoders['State']
-        enc_country = encoders['Country']
-
-        try: 
-            state_code = enc_state.transform([state_in])[0]
-        except:
-            raise ValueError(f"State '{state_in}' not found. Available states: {enc_state.classes_.tolist()}")
-        try:
-            country_code = enc_country.transform([country_in])[0]
-        except:
-            raise ValueError(f"Country '{country_in}' not found. Available countries: {enc_country.classes_.tolist()}")
-        input_features += [int(state_code), int(country_code)]
+        if not isinstance(location, dict) or "state" not in location or "country" not in location:
+            raise ValueError("State location must be a dictionary with 'state' and 'country' keys.")
+        state_code = le["State"].transform([location["state"].strip().lower()])[0]
+        country_code = le["Country"].transform([location["country"].strip().lower()])[0]
+        row = [y_s, m_s, state_code, country_code]
 
     else:
         raise ValueError(f"Invalid dataset '{ds}'. Available datasets: {list(lr_models.keys())}")
     
     # Sanity check for input features
-    if len(input_features) != len(features):
-        raise ValueError(f"Input features length mismatch. Expected {len(features)}, got {len(input_features)}.")
+    print("boooooo")
+    print("row:", row)
+    print("features:", features)
+    if len(row) != len(features):
+        raise ValueError(f"Expected {len(features)} features but got built {len(row)}.")
     
-    # Make prediction and wrap in a DMatrix
-    dmat = xgb.DMatrix(np.array[input_features], feature_names=features)
-    prediction = model.predict(dmat)[0]
+    # Make a prediction using the model
+    print("booooooo")
+    prediction = model.predict([row])[0]
+    print("Country pt2 success.")
+    print("boooooooo")
 
     # Plot historical trend for this prediction
     csv_map = {
@@ -511,12 +489,12 @@ def predict_lr(dataset, year, month, location=None,
         raw = raw.dropna(subset=['AverageTemperature', 'City', 'Country'])
         raw['City'] = raw['City'].str.strip().str.lower()
         raw['Country'] = raw['Country'].str.strip().str.lower()
-        filter = (raw['City'] == city_in) & (raw['Country'] == country_in)
-    else: # state
+        filter = (raw['City'] == city_code) & (raw['Country'] == country_code)
+    elif ds == 'state':
         raw = raw.dropna(subset=['AverageTemperature', 'State', 'Country'])
         raw['State'] = raw['State'].str.strip().str.lower()
         raw['Country'] = raw['Country'].str.strip().str.lower()
-        filter = (raw['State'] == state_in) & (raw['Country'] == country_in)
+        filter = (raw['State'] == state_code) & (raw['Country'] == country_code)
 
     # Build a true monthly time-series for the given location
     df_loc = raw.loc[filter, ['dt', 'AverageTemperature']].copy()
@@ -540,7 +518,7 @@ def predict_lr(dataset, year, month, location=None,
     plt.grid(True)
 
     # Save the plot to a file
-    os.markedirs(os.path.dirname(output_file), exist_ok=True)
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
     if save_plot:
         plt.savefig(output_file, bbox_inches='tight')
         print(f"Plot saved to {output_file}.")
@@ -548,11 +526,11 @@ def predict_lr(dataset, year, month, location=None,
         plt.show()
     plt.close()
 
-    # Return prediction value
+    # Return the prediction value
     return {
         "dataset": ds,
-        "location": location if isinstance(location, str) else (location.get(ds[:-1], location)),
+        "location": location if isinstance(location, str) else (location.get('city') or location.get('state')),
         "month": month,
+        "predicted_temperature": float(prediction),
         "year": year,
-        "prediction": prediction
     }

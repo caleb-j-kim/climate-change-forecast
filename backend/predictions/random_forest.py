@@ -10,7 +10,17 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 rf_models = {}
 
-# Preprocess datasets and clean up data for more accurate predictions
+"""
+    Preprocess datasets and clean up data for training + more accurate predictions.
+    This includes:
+    - Converting date columns to datetime format
+    - Dropping rows with missing values in required columns
+    - Cleaning up string columns (e.g., removing extra whitespace, converting to lowercase)
+    - Extracting year and month from date columns
+    - Filtering data based on provided year ranges
+    - Sampling data for speed (if needed)
+    - Scaling numerical values (e.g., year, month)
+"""
 
 def preprocess_country(file_path, min_year=None, max_year=None, sample_frac=None):
     data = pd.read_csv(file_path)
@@ -170,13 +180,20 @@ def preprocess_state(file_path, min_year=None, max_year=None, sample_frac=None):
     print("After cleaning, state dataset shape:", data.shape)
     return data, scaler, (le_state, le_country)  
 
-# Train models with the use of Early Stopping and Hyperparameter Tuning to boost performance
+"""
+    Trains a Random Forest model for each dataset (country, city, state) using XGBoost.
+    XGBoost is used for Early Stopping and Hyperparameter Tuning.
+    - (trains faster and more accurately than Random Forest normally does.)
+    - Early stopping is used to prevent overfitting which is when features look too similar, worsing the model.
+    - Hyperparameter tuning is used to adjust the model to the dataset more accurately.
+    - The trained model is saved for future predictions.
+"""
 
 def train_country(file_path):
-    
+
     # Enter preprocessing first
     try: 
-        # use hyperparamter tuning to adjust sample_frac if performance is too low
+        # Adjust sample_frac if performance is too low
         data, scaler, le = preprocess_country(file_path, min_year=1800, max_year=2100, sample_frac=1)
     
     except Exception as e:
@@ -320,7 +337,10 @@ def train_all():
     else:
         print("State dataset not found at ", state_path)
 
-# Test the models
+"""
+    Tests the Random Forest model for each dataset (country, city, state) using XGBoost.
+    Returns a dictionary with the model metrics (MSE, MAE, R2) for each dataset.
+"""
 
 def test_country(file_path):
     # use hyperparamter tuning to adjust sample_frac if performance is too low
@@ -443,7 +463,12 @@ def test_all():
             
     return results
 
-# Predictions (for real time predictions)
+"""
+    Predicts the temperature for a given dataset (country, city, state) using the trained Random Forest model.
+    The location can be a country, state, or city.
+    The function takes the location name, year, and month as input parameters.
+    It returns the predicted temperature for that location and time.
+"""
 
 def predict_rf(dataset, year, month, location=None):
     dataset = dataset.lower()
