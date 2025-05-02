@@ -6,3 +6,4 @@ matplotlib
 seaborn
 boto3
 xgboost
+tqdm
