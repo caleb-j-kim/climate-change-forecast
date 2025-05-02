@@ -105,7 +105,8 @@
       color: var(--fg);
     }
 
-    #forecast-summary {
+    #forecast-summary,
+    #llm-summary {
       margin-top: 24px;
       background: var(--input-bg);
       padding: 16px;
@@ -155,6 +156,10 @@
     </form>
 
     <div id="forecast-summary"></div>
+    <div id="llm-summary" style="display: none;">
+      <h3 style="margin-top: 0;">AI Summary</h3>
+      <p id="summary-text">Thinking...</p>
+    </div>
     <canvas id="forecastChart" style="margin-top: 30px;"></canvas>
   </div>
 
@@ -211,6 +216,8 @@
         if (!res.ok) return alert(data.error || "Prediction failed.");
         renderSummary(data, location, year, month);
         renderChart(data, location, year, month);
+        document.getElementById("summary-text").textContent = data.summary;
+        document.getElementById("llm-summary").style.display = "block";
       });
 
       function renderSummary(data, location, year, month) {
