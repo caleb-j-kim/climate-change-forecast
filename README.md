@@ -74,6 +74,15 @@ docker run -e AWS_ACCESS_KEY_ID=putKeyHere \
            -p 5050:5000 climate-change-forecast
 ```
 
+5. Docker Bash
+   ```sh
+   docker run -it \
+  -e AWS_ACCESS_KEY_ID=putKeyHere \
+  -e AWS_SECRET_ACCESS_KEY=putSecretKeyHere \
+  -e AWS_DEFAULT_REGION=us-east-2 \
+  climate-change-forecast /bin/bash
+   ```
+
 ---
 
 ## Git Workflow
