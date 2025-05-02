@@ -10,6 +10,7 @@ from utils.dynamo_utils import save_forecast_to_dynamodb
 
 app = Flask(__name__)
 
+
 # === Config ===
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATASETS = {
@@ -29,6 +30,9 @@ def warm_up_models():
     print("Testing ensemble…")
     metrics = test_ensemble()
     print("Ensemble test metrics:", metrics)
+
+warm_up_models()
+
 
 # === Location utilities ===
 @lru_cache(maxsize=None)
@@ -75,13 +79,13 @@ def predict_endpoint():
         result = predict_ensemble(ds, yr, mnth, location=loc)
 
         # optionally store to DynamoDB
-        save_forecast_to_dynamodb({
-            "dataset": ds,
-            "year": yr,
-            "month": mnth,
-            "location": loc,
-            **result
-        })
+        #save_forecast_to_dynamodb({
+        #    "dataset": ds,
+        #    "year": yr,
+        #    "month": mnth,
+        #    "location": loc,
+        #    **result
+        #})
 
         return jsonify(result), 200
 
@@ -93,5 +97,4 @@ def predict_endpoint():
 
 # === Startup ===
 if __name__ == "__main__":
-    warm_up_models()
     app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=False)
