@@ -92,3 +92,27 @@ docker run -e AWS_ACCESS_KEY_ID=putKeyHere \
    ```
 
 ---
+
+## Backend Testing
+1. Train models:
+   ``` sh
+   Invoke-RestMethod -Method GET -Uri "http://localhost:5000/train"
+
+2. Test models:
+   ``` sh
+   Invoke-RestMethod -Method GET -Uri "http://localhost:5000/test"
+
+3. Predict climate:
+   ``` sh
+Invoke-RestMethod -Method POST -Uri "http://localhost:5000/predict" `
+    -Body '{"dataset": "country", "year": 2020, "month": 07, "location": "United States"}' `
+    -ContentType "application/json"
+
+   ``` sh
+Invoke-RestMethod -Method POST -Uri "http://localhost:5000/predict" `
+    -Body '{"dataset": "city", "year": 2000, "month": 7, "location": {"city": "New York", "country": "United States"}}' `
+    -ContentType "application/json"
+
+Invoke-RestMethod -Method POST -Uri "http://localhost:5000/predict" `
+    -Body '{"dataset": "state", "year": 2000, "month": 7, "location": {"state": "Virginia", "country": "United States"}}' `
+    -ContentType "application/json"

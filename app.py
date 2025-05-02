@@ -1,15 +1,14 @@
 from flask import Flask, request, render_template, jsonify
 import os
 import pandas as pd
-from models.linear_regression import train_temperature_model
+import uuid
 import shutil
+from backend.predictions.linear_regression import train_temperature_model
+from backend.predictions.random_forest import train_all, test_all, predict_rf
 from functools import lru_cache
 from utils.s3_utils import upload_image_to_s3
 from utils.dynamo_utils import save_forecast_to_dynamodb
-import uuid
 
-
-# Initialize Flask application
 app = Flask(__name__)
 
 # Define base directory and paths to different temperature datasets
@@ -39,31 +38,30 @@ def load_location_options(location_type):
     return sorted(df[column].dropna().unique())
 
 @app.route("/")
-def index():
-    """
-    Render the homepage with country options preloaded (default view).
-    """
-    countries = load_location_options("country")
-    return render_template("index.html", countries=countries)
+def home():
+    return ("Welcome to the Climate Change Forecast Prediction API.<br>"
+            "- /train: Train all models.<br>"
+            "- /test: Test all models.<br>"
+            "- /predict: Make predictions.<br>"
+    )
 
-@app.route("/locations")
-def get_locations():
-    """
-    API endpoint to return available locations based on selected location type.
-    """
-    location_type = request.args.get("type")
-    options = load_location_options(location_type)
-    return jsonify(options)
+@app.route("/train", methods=["GET"])
+def train_endpoint():
+    train_all()
+    return "Successfully trained all models."
 
-@app.route("/year-range")
-def year_range():
-    """
-    API endpoint to return the minimum and maximum year of available data for a given location.
-    """
-    location_type = request.args.get("type")
-    location = request.args.get("location")
-    path = DATASETS.get(location_type)
+@app.route("/test", methods=["GET"])
+def test_endpoint():
+    results = test_all()
+    return jsonify(["Successfully tested all models."] + results)
 
+@app.route("/predict", methods=["POST"])
+def predict_endpoint():
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No JSON payload provided."}), 400
+    
+    dataset = data.get("dataset", "country").lower()
     try:
         df = pd.read_csv(path, usecols=["dt", location_type.capitalize()])
         df = df[df[location_type.capitalize()] == location]
@@ -90,7 +88,6 @@ def predict():
 
     # Output file paths
 
-
     #filename = f"{location_type}_{location.replace(' ', '_')}_temperature_trend.png"
     safe_loc = location.replace(" ", "_")
     filename = f"{location_type}_{safe_loc}_temperature_trend.png"
@@ -99,6 +96,9 @@ def predict():
     #static_file = os.path.join("static", filename)
 
     try:
+
+        prediction = predict_rf(dataset, year, month, location)
+
         # Train and generate plot
         train_temperature_model(
             location=location,
@@ -135,14 +135,29 @@ def predict():
         #loads the image from the cloud
         print(f"[DEBUG] S3 URL: {s3_url}")  # Should print https://...
         return render_template("result.html", location=location, image_path=s3_url)
+    
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+    
+    return jsonify({
+        "dataset": dataset,
+        "year": year,
+        "month": month,
+        "location": location,
+        "predicted_temperature": prediction
+    })
 
 
     except ValueError as e:
         return f"<h3>Input Error: {e}</h3>", 400
     except FileNotFoundError as e:
         return f"<h3>File Error: {e}</h3>", 404
-    except Exception as e:
-        return f"<h3>Server Error: {e}</h3>", 500
+        year = int(data.get("year"))
+        month = int(data.get("month"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Please provide valid integer values for 'year' and 'month'."}), 400
+    location = data.get("location", None)
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000)
+    
