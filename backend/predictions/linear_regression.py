@@ -1,11 +1,11 @@
 # For a more streamlined and efficient approach, this code and the random_forest.py will follow the same structure.
-
 import os
 import pandas as pd
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')  # Enables plotting in headless environments (e.g., server-side)
 import matplotlib.pyplot as plt
+from datetime import datetime # for saving plots
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, LabelEncoder
@@ -401,6 +401,8 @@ def test_all(): # Test all models using one function that's called by one singul
     The location can be a country, state, or city.
     The function takes the location name, year, and month as input parameters.
     It returns the predicted average temperature for that location as both a value and a plot.
+    - Each graph is labeled with their dataset they referenced along with a time-stamp of when the prediction was made.
+    - The title of the graph is "(Dataset Name) + (Location) Monthly Temperature Trend of (Year)"
     (The plot is saved to a file and can be uploaded to S3 or displayed as needed.)
 """
 
@@ -408,12 +410,11 @@ def predict_lr(dataset, year, month, location=None,
                save_plot=True, show_plot=False,
                output_file="outputs/linear_regression_prediction_plot.png"):
     ds = dataset.lower()
-    print("DEBUG predict_lr ds:", ds)
+    print("DEBUG predict_lr dataset:", ds)
     if ds not in lr_models:
         raise ValueError(f"Model for {ds} not found. Available models: {list(lr_models.keys())}")
     
     # Variables for plotting and prediction
-    print("b")
     info = lr_models[ds]
     features = info['features']
     model = info['model']
@@ -421,25 +422,18 @@ def predict_lr(dataset, year, month, location=None,
     le = info['le']
 
     # Scale numerical values (year, month) for prediction
-    print("touch")
     if scaler:
         y_s, m_s = scaler.transform([[year, month]])[0]
-        print("touched")
     else:
         y_s, m_s = year, month
-        print("bo")
 
     # Build feature row
     if ds == 'country':
-        print("boo")
         if not isinstance(location, str):
             raise ValueError("Country location must be a string.")
         loc_clean = location.strip().lower()
-        print("booo")
         code = le.transform([loc_clean])[0] # Transform to numeric code
-        print(".")
         row = [y_s, m_s, code]
-        print("Country pt1 success.")
 
     elif ds == 'city':
         if not isinstance(location, dict) or "city" not in location or "country" not in location:
@@ -459,17 +453,13 @@ def predict_lr(dataset, year, month, location=None,
         raise ValueError(f"Invalid dataset '{ds}'. Available datasets: {list(lr_models.keys())}")
     
     # Sanity check for input features
-    print("boooooo")
     print("row:", row)
     print("features:", features)
     if len(row) != len(features):
         raise ValueError(f"Expected {len(features)} features but got built {len(row)}.")
     
     # Make a prediction using the model
-    print("booooooo")
     prediction = model.predict([row])[0]
-    print("Country pt2 success.")
-    print("boooooooo")
 
     # Plot historical trend for this prediction
     csv_map = {
@@ -478,47 +468,52 @@ def predict_lr(dataset, year, month, location=None,
         'state': "datasets/GlobalLandTemperaturesByState.csv"
     }
 
-    raw = pd.read_csv(csv_map[ds])
-    raw['dt'] = pd.to_datetime(raw['dt'], errors='coerce')
+    # Filter 'raw' and building with a DateTime index
+    raw=pd.read_csv(csv_map[ds])
+    raw['dt']=pd.to_datetime(raw['dt'],errors='coerce')
+    raw.dropna(subset=['AverageTemperature'],inplace=True)
 
-    if ds == 'country':
-        raw = raw.dropna(subset=['AverageTemperature', 'Country'])
-        raw['Country'] = raw['Country'].str.strip().str.lower()
-        filter = raw['Country'] == loc_clean
-    elif ds == 'city':
-        raw = raw.dropna(subset=['AverageTemperature', 'City', 'Country'])
-        raw['City'] = raw['City'].str.strip().str.lower()
-        raw['Country'] = raw['Country'].str.strip().str.lower()
-        filter = (raw['City'] == city_code) & (raw['Country'] == country_code)
-    elif ds == 'state':
-        raw = raw.dropna(subset=['AverageTemperature', 'State', 'Country'])
-        raw['State'] = raw['State'].str.strip().str.lower()
-        raw['Country'] = raw['Country'].str.strip().str.lower()
-        filter = (raw['State'] == state_code) & (raw['Country'] == country_code)
+    if ds=='country':
+        df_loc=raw[raw['Country'].str.strip().str.lower()==loc_clean]
+    elif ds=='city':
+        df_loc=raw[(raw['City'].str.strip().str.lower()==location['city'].lower()) &
+                   (raw['Country'].str.strip().str.lower()==location['country'].lower())]
+    else:
+        df_loc=raw[(raw['State'].str.strip().str.lower()==location['state'].lower()) &
+                   (raw['Country'].str.strip().str.lower()==location['country'].lower())]
 
-    # Build a true monthly time-series for the given location
-    df_loc = raw.loc[filter, ['dt', 'AverageTemperature']].copy()
-    df_loc = df_loc.dropna(subset=['AverageTemperature'])
-    df_loc.set_index('dt', inplace=True)
+    # Build a true monthly time-series for the given location and restrict to the year
+    df_loc=df_loc[df_loc['dt'].dt.year==year]
+    df_loc['month']=df_loc['dt'].dt.month
+    monthly=(
+        df_loc.groupby('month')['AverageTemperature']
+             .mean()
+             .reindex(range(1,13))
+             .reset_index()
+    )
 
-    # Resample the get the monthly mean
-    monthly = df_loc['AverageTemperature'] \
-                .resample('M') \
-                .mean() \
-                .reset_index()
-    
-    # Plot Date on the x-axis (month + year) and AverageTemperature on the y-axis
-    plt.figure(figsize=(12, 6))
-    plt.plot(monthly['dt'], monthly['AverageTemperature'], marker='o', linestyle='-',
-             alpha=0.7, label='Monthly Avg', color='blue')
-    plt.title(f"{ds.title()} {location!r} Monthly Temperature Trend of {year}.")
-    plt.xlabel("Date")
-    plt.ylabel("Average Temperature (°C)")
+    # Plot scatter + trend line
+    plt.figure(figsize=(10,6))
+    plt.scatter(monthly['month'],monthly['AverageTemperature'],label='Monthly Avg',alpha=0.8, color='black')
+    lr=LinearRegression()
+    vals=monthly['AverageTemperature'].values.reshape(-1,1)
+    Xm=monthly[['month']].values
+    mask=~np.isnan(monthly['AverageTemperature'])
+    lr.fit(Xm[mask],monthly.loc[mask,'AverageTemperature'])
+    plt.plot(monthly['month'],lr.predict(Xm),linestyle='--',label='Trend', color='red')
+    plt.xticks(range(1,13),['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'])
+    plt.title(f"{ds.title()} {location!r} — {year} Monthly Temp")
+    plt.xlabel("Month")
+    plt.ylabel("Avg Temp (°C)")
+    plt.grid(True,alpha=0.3)
     plt.legend()
-    plt.grid(True)
 
     # Save the plot to a file
-    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_dir = "outputs"
+    os.makedirs(output_dir, exist_ok=True)
+    output_file = f"{output_dir}/linear_regression_prediction_plot_{ds}_{ts}.png"
+
     if save_plot:
         plt.savefig(output_file, bbox_inches='tight')
         print(f"Plot saved to {output_file}.")

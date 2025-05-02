@@ -13,6 +13,12 @@ from utils.dynamo_utils import save_forecast_to_dynamodb
 
 app = Flask(__name__)
 
+def warm_up_models():
+    train_all()
+    print("Successfully trained all models.")
+    test_all()
+    print("Successfully tested all models.")
+
 # Define base directory and paths to different temperature datasets
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATASETS = {
@@ -84,5 +90,9 @@ def predict_endpoint():
         return jsonify({"error": "Internal server error"}), 500
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=True)
     
+    # Perform both GET calls to train and test all models on startup but only once.
+    warm_up_models()
+
+    # now start accepting requests
+    app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=False)
