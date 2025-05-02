@@ -1,250 +1,277 @@
-<!-- templates/index.html -->
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <title>Climate Forecast</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg: #f9f9f9;
-            --fg: #333;
-            --card-bg: #fff;
-            --input-bg: #fff;
-            --border: #ddd;
-            --primary: #0077ff;
-        }
+  <meta charset="UTF-8">
+  <title>Climate Forecast</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f9f9f9;
+      --fg: #333;
+      --card-bg: #fff;
+      --input-bg: #fff;
+      --border: #ddd;
+      --primary: #0077ff;
+    }
 
-        body {
-            background: var(--bg);
-            color: var(--fg);
-            font-family: 'Inter', sans-serif;
-            margin: 0;
-            padding: 0;
-        }
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      font-family: 'Inter', sans-serif;
+      margin: 0;
+      padding: 0;
+    }
 
-        .container {
-            max-width: 480px;
-            margin: 80px auto;
-            padding: 24px;
-            background: var(--card-bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, .05);
-        }
+    .container {
+      max-width: 600px;
+      margin: 60px auto;
+      padding: 24px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    }
 
-        h1 {
-            margin-top: 0;
-            font-weight: 600;
-            text-align: center;
-        }
+    h1 {
+      margin-top: 0;
+      font-weight: 600;
+      text-align: center;
+    }
 
-        label {
-            display: block;
-            margin-top: 16px;
-            margin-bottom: 4px;
-            font-weight: 500;
-        }
+    label {
+      display: block;
+      margin-top: 16px;
+      margin-bottom: 4px;
+      font-weight: 500;
+    }
 
-        select,
-        input[type="number"],
-        button {
-            width: 100%;
-            padding: 8px 12px;
-            font-size: 16px;
-            border: 1px solid var(--border);
-            background: var(--input-bg);
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
+    select,
+    input[type="number"],
+    button {
+      width: 100%;
+      padding: 10px 14px;
+      font-size: 16px;
+      border: 1px solid var(--border);
+      background: var(--input-bg);
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
 
-        button {
-            margin-top: 24px;
-            background: var(--primary);
-            color: #fff;
-            border: none;
-            cursor: pointer;
-        }
+    button {
+      margin-top: 24px;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+    }
 
-        .spinner {
-            display: none;
-            margin: 16px auto;
-            border: 4px solid var(--border);
-            border-top: 4px solid var(--primary);
-            border-radius: 50%;
-            width: 32px;
-            height: 32px;
-            animation: spin 1s linear infinite;
-        }
+    .spinner {
+      display: none;
+      margin: 16px auto;
+      border: 4px solid var(--border);
+      border-top: 4px solid var(--primary);
+      border-radius: 50%;
+      width: 32px;
+      height: 32px;
+      animation: spin 1s linear infinite;
+    }
 
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
 
-        .dark {
-            --bg: #121212;
-            --fg: #eee;
-            --card-bg: #1e1e1e;
-            --input-bg: #2a2a2a;
-            --border: #444;
-        }
+    .dark {
+      --bg: #121212;
+      --fg: #eee;
+      --card-bg: #1e1e1e;
+      --input-bg: #2a2a2a;
+      --border: #444;
+    }
 
-        .dark-toggle {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: var(--card-bg);
-            border: 1px solid var(--border);
-            padding: 8px 12px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            color: var(--fg);
-        }
-    </style>
+    .dark-toggle {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      color: var(--fg);
+    }
+
+    #forecast-summary {
+      margin-top: 24px;
+      background: var(--input-bg);
+      padding: 16px;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+    }
+  </style>
 </head>
 
 <body>
-    <div class="dark-toggle" id="theme-toggle">🌙 Dark Mode</div>
+  <div class="dark-toggle" id="theme-toggle">🌙 Dark Mode</div>
+  <div class="container">
+    <h1>Climate Forecast</h1>
 
-    <div class="container">
-        <h1>Climate Forecast</h1>
+    <form id="forecast-form">
+      <label for="type">Location Type:</label>
+      <select name="dataset" id="type" required>
+        <option value="country">Country</option>
+        <option value="state">State</option>
+        <option value="city">City</option>
+      </select>
 
-        <form id="forecast-form">
-            <label for="type">Location Type:</label>
-            <select name="dataset" id="type" required>
-                <option value="country">Country</option>
-                <option value="state">State</option>
-                <option value="city">City</option>
-            </select>
+      <label for="location">Location:</label>
+      <select name="location" id="location" required></select>
 
-            <label for="location">Location:</label>
-            <select name="location" id="location" required>
-                <!-- populated by JS -->
-            </select>
+      <label for="year">Year:</label>
+      <input type="number" name="year" id="year" min="1850" max="2013" required>
 
-            <label for="year">Year:</label>
-            <input type="number" name="year" id="year" min="1850" max="2013" required>
+      <label for="month">Month:</label>
+      <select name="month" id="month" required>
+        <option value="1">Jan</option>
+        <option value="2">Feb</option>
+        <option value="3">Mar</option>
+        <option value="4">Apr</option>
+        <option value="5">May</option>
+        <option value="6">Jun</option>
+        <option value="7">Jul</option>
+        <option value="8">Aug</option>
+        <option value="9">Sep</option>
+        <option value="10">Oct</option>
+        <option value="11">Nov</option>
+        <option value="12">Dec</option>
+      </select>
 
-            <label for="month">Month:</label>
-            <select name="month" id="month" required>
-                <option value="1">Jan</option>
-                <option value="2">Feb</option>
-                <option value="3">Mar</option>
-                <option value="4">Apr</option>
-                <option value="5">May</option>
-                <option value="6">Jun</option>
-                <option value="7">Jul</option>
-                <option value="8">Aug</option>
-                <option value="9">Sep</option>
-                <option value="10">Oct</option>
-                <option value="11">Nov</option>
-                <option value="12">Dec</option>
-            </select>
+      <div class="spinner" id="loading-spinner"></div>
+      <button type="submit">Generate Forecast</button>
+    </form>
 
-            <div class="spinner" id="loading-spinner"></div>
-            <button type="submit">Generate Forecast</button>
-        </form>
-    </div>
+    <div id="forecast-summary"></div>
+    <canvas id="forecastChart" style="margin-top: 30px;"></canvas>
+  </div>
 
-    <!-- Theme toggle logic -->
-    <script>
-        document.addEventListener("DOMContentLoaded", () => {
-            const storedTheme = localStorage.getItem("theme");
-            if (storedTheme === "dark") {
-                document.body.classList.add("dark");
-                document.getElementById("theme-toggle").textContent = "☀️ Light Mode";
-            }
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const storedTheme = localStorage.getItem("theme");
+      if (storedTheme === "dark") {
+        document.body.classList.add("dark");
+        document.getElementById("theme-toggle").textContent = "☀️ Light Mode";
+      }
+
+      document.getElementById("theme-toggle").addEventListener("click", () => {
+        document.body.classList.toggle("dark");
+        const isDark = document.body.classList.contains("dark");
+        localStorage.setItem("theme", isDark ? "dark" : "light");
+        document.getElementById("theme-toggle").textContent = isDark ? "☀️ Light Mode" : "🌙 Dark Mode";
+      });
+
+      const form = document.getElementById("forecast-form");
+      const spinner = document.getElementById("loading-spinner");
+      const typeSelect = document.getElementById("type");
+      const locationSelect = document.getElementById("location");
+
+      async function updateLocations() {
+        spinner.style.display = "block";
+        const res = await fetch(`/locations?type=${typeSelect.value}`);
+        const data = await res.json();
+        locationSelect.innerHTML = data.map(loc => `<option value="${loc}">${loc}</option>`).join("");
+        spinner.style.display = "none";
+      }
+
+      updateLocations();
+      typeSelect.addEventListener("change", updateLocations);
+
+      form.addEventListener("submit", async e => {
+        e.preventDefault();
+        spinner.style.display = "block";
+
+        const dataset = typeSelect.value;
+        const location = locationSelect.value;
+        const year = parseInt(document.getElementById("year").value, 10);
+        const month = parseInt(document.getElementById("month").value, 10);
+
+        const res = await fetch("/predict", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ dataset, year, month, location })
         });
-        document.getElementById("theme-toggle").addEventListener("click", () => {
-            document.body.classList.toggle("dark");
-            const isDark = document.body.classList.contains("dark");
-            localStorage.setItem("theme", isDark ? "dark" : "light");
-            document.getElementById("theme-toggle").textContent = isDark ? "☀️ Light Mode" : "🌙 Dark Mode";
-        });
-    </script>
 
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script>
-        document.addEventListener("DOMContentLoaded", () => {
-            const form = document.getElementById("forecast-form");
-            const spinner = document.getElementById("loading-spinner");
-            const container = document.querySelector(".container");
-            const typeSelect = document.getElementById("type");
-            const locationSelect = document.getElementById("location");
+        const data = await res.json();
+        spinner.style.display = "none";
 
-            // Populate locations when the page loads and when type changes
-            async function updateLocations() {
-                spinner.style.display = "block";
-                const res = await fetch(`/locations?type=${typeSelect.value}`);
-                const data = await res.json();
-                locationSelect.innerHTML = data
-                    .map(loc => `<option value="${loc}">${loc}</option>`)
-                    .join("");
-                spinner.style.display = "none";
-            }
-            updateLocations();
-            typeSelect.addEventListener("change", updateLocations);
+        if (!res.ok) return alert(data.error || "Prediction failed.");
+        renderSummary(data, location, year, month);
+        renderChart(data, location, year, month);
+      });
 
-            // Handle form submit
-            form.addEventListener("submit", async e => {
-                e.preventDefault();
-                spinner.style.display = "block";
+      function renderSummary(data, location, year, month) {
+        const div = document.getElementById("forecast-summary");
+        div.innerHTML = `
+          <h2>Forecast Summary</h2>
+          <p><strong>Location:</strong> ${location}</p>
+          <p><strong>Date:</strong> ${month}/${year}</p>
+          <p>Linear Regression: ${data.lr_prediction.toFixed(2)} °C</p>
+          <p>Random Forest: ${data.rf_prediction.toFixed(2)} °C</p>
+          <p><strong>Ensemble Avg:</strong> <span style="color: var(--primary); font-weight: bold;">${data.ensemble_prediction.toFixed(2)} °C</span></p>
+        `;
+      }
 
-                const dataset = typeSelect.value;
-                const location = locationSelect.value;
-                const year = parseInt(document.getElementById("year").value, 10);
-                const month = parseInt(document.getElementById("month").value, 10);
+      function renderChart(data, location, year, month) {
+        const ctx = document.getElementById("forecastChart").getContext("2d");
+        if (window.myChart) window.myChart.destroy();
 
-                const res = await fetch("/predict", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ dataset, year, month, location })
-                });
-                const data = await res.json();
-                spinner.style.display = "none";
-
-                if (!res.ok) {
-                    return alert(data.error || "Prediction failed.");
+        window.myChart = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: ["Linear Regression", "Random Forest", "Ensemble"],
+            datasets: [{
+              label: `Temperature (°C) in ${location} (${month}/${year})`,
+              data: [data.lr_prediction, data.rf_prediction, data.ensemble_prediction],
+              borderColor: "#0077ff",
+              backgroundColor: "rgba(0,119,255,0.1)",
+              tension: 0.4,
+              fill: true,
+              pointBackgroundColor: "#0077ff"
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              title: {
+                display: true,
+                text: `Forecast Model Outputs`,
+                font: { size: 16 }
+              },
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: ctx => `${ctx.label}: ${ctx.parsed.y.toFixed(2)} °C`
                 }
-                renderChart(data, location, year, month);
-            });
-
-            // Draw the bar chart
-            function renderChart({ lr_prediction, rf_prediction, ensemble_prediction }, location, year, month) {
-                const old = document.getElementById("forecastChart");
-                if (old) old.remove();
-
-                const canvas = document.createElement("canvas");
-                canvas.id = "forecastChart";
-                container.appendChild(canvas);
-
-                new Chart(canvas.getContext("2d"), {
-                    type: "bar",
-                    data: {
-                        labels: ["Linear Regression", "Random Forest", "Ensemble"],
-                        datasets: [{
-                            label: `Temperature (°C) in ${location} (${month}/${year})`,
-                            data: [lr_prediction, rf_prediction, ensemble_prediction],
-                            barPercentage: 0.6
-                        }]
-                    },
-                    options: {
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                title: { display: true, text: "Temperature (°C)" }
-                            }
-                        }
-                    }
-                });
+              }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                title: {
+                  display: true,
+                  text: "Temperature (°C)"
+                }
+              }
             }
+          }
         });
-    </script>
+      }
+    });
+  </script>
 </body>
 
 </html>
