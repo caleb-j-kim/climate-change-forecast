@@ -5,7 +5,7 @@ import pandas as pd
 import uuid
 import shutil
 from backend.predictions.ensemble import train_ensemble, test_ensemble, predict_ensemble
-from backend.apis.tomorrow_io import fetch_daily_timeline, fetch_random_city_forecast
+from backend.apis.tomorrow_io import fetch_daily_timeline, fetch_random_city_forecast, fetch_random_country_forecast, fetch_random_state_forecast
 from functools import lru_cache
 from utils.s3_utils import upload_image_to_s3
 from utils.dynamo_utils import save_forecast_to_dynamodb
@@ -72,14 +72,33 @@ def weather_timeline_endpoint():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     
-@app.route("/weather/forecast", methods=["GET"])
-def weather_forecast_endpoint():
+@app.route("/weather/forecast/random_country", methods=["GET"])
+def random_country_forecast():
+    try:
+        country, full = fetch_random_country_forecast()
+        intervals = full["data"]["timelines"][0]["intervals"]
+        return jsonify({"type":"country", "location": country, "forecast": intervals}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/weather/forecast/random_city", methods=["GET"])
+def random_city_forecast():
     try:
         city, full = fetch_random_city_forecast()
         intervals = full["data"]["timelines"][0]["intervals"]
-        return jsonify({"city": city, "forecast": intervals}), 200
+        return jsonify({"type":"city", "location": city, "forecast": intervals}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.route("/weather/forecast/random_state", methods=["GET"])
+def random_state_forecast():
+    try:
+        state, full = fetch_random_state_forecast()
+        intervals = full["data"]["timelines"][0]["intervals"]
+        return jsonify({"type":"state", "location": state, "forecast": intervals}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route("/predict", methods=["POST"])
 def predict_endpoint():
