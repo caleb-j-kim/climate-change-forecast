@@ -17,3 +17,6 @@ datasets/*.csv
 
 # Keep README.md inside datasets/ (documents the local expectation)
 !datasets/README.md
+
+# Ignnore environment files (for safeguarding API Keys)
+.env

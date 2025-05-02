@@ -15,6 +15,22 @@ from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
 lr_models = {}
 
 """
+    Inject quadratic year and cyclical month features into the dataset to improve model performance.
+    - year2 = year ** 2 (quadratic feature)
+    - month_sin = sin(2 * pi * month / 12) (cyclical feature)
+    - month_cos = cos(2 * pi * month / 12) (cyclical feature)
+    - This allows the model to learn seasonal patterns more effectively.
+"""
+
+def add_time_features(df): 
+    df = df.copy()  # Avoid modifying the original DataFrame
+    df['year2'] = df['year'] ** 2 
+    radians = 2 * np.pi * df['month'] / 12
+    df['month_sin'] = np.sin(radians)
+    df['month_cos'] = np.cos(radians)
+    return df
+
+"""
     Preprocess each dataset (country, state, city) to clean up data and prepare it for training and higher accuracy.
     This includes:
     - Converting date columns to datetime format
@@ -50,12 +66,15 @@ def preprocess_country(file_path, min_year=None, max_year=None, sample_frac=None
     if sample_frac is not None and 0 < sample_frac < 1.0:
         df = df.sample(frac=sample_frac, random_state=42)
 
+    df = add_time_features(df)
+
     # Clean location strings: strip whitespace
     df['Country'] = df['Country'].astype(str).str.strip().str.lower()
 
     # Scale numerical values
+    num_feats = ['year', 'year2', 'month_sin', 'month_cos']
     scaler = StandardScaler()
-    df[['year', 'month']] = scaler.fit_transform(df[['year', 'month']])
+    df[num_feats] = scaler.fit_transform(df[num_feats])
 
     # Encode categorical variables (e.g. Country)
     le = LabelEncoder()
@@ -109,9 +128,12 @@ def preprocess_city(file_path, min_year=None, max_year=None, sample_frac=None):
     if sample_frac is not None and 0 < sample_frac < 1.0:
         df = df.sample(frac=sample_frac, random_state=42)
 
+    df = add_time_features(df)
+
     # Scale numerical values (e.g. year and month)
+    num_feats = ['year', 'year2', 'month_sin', 'month_cos']
     scaler = StandardScaler()
-    df[['year', 'month']] = scaler.fit_transform(df[['year', 'month']])
+    df[num_feats] = scaler.fit_transform(df[num_feats])
 
     # Encode the City column
     le_city = LabelEncoder()
@@ -170,9 +192,12 @@ def preprocess_state(file_path, min_year=None, max_year=None, sample_frac=None):
     if sample_frac is not None and 0 < sample_frac < 1.0:
         df = df.sample(frac=sample_frac, random_state=42)
 
+    df = add_time_features(df)
+
     # Scale numerical values (e.g. year and month)
+    num_feats = ['year', 'year2', 'month_sin', 'month_cos']
     scaler = StandardScaler()
-    df[['year', 'month']] = scaler.fit_transform(df[['year', 'month']])
+    df[num_feats] = scaler.fit_transform(df[num_feats])
 
     # Encode the State column
     le_state = LabelEncoder()
@@ -201,8 +226,8 @@ def train_country(file_path):
         return
     
     # Use year, month, and encoded country as features
-    X = df[['year', 'month', 'Country_encoded']]
-    y = df['AverageTemperature']
+    feats = ['year','year2','month_sin','month_cos','Country_encoded']
+    X, y = df[feats], df['AverageTemperature']
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2, random_state = 42)
 
     # Train linear regression model
@@ -213,7 +238,8 @@ def train_country(file_path):
         'model': model,
         'features': ['year', 'month', 'Country_encoded'],
         'scaler': scaler,
-        'le': le
+        'le': le,
+        'features': feats
     }
 
     print("Successfully trained Linear Regression model for country dataset.")
@@ -228,8 +254,8 @@ def train_city(file_path):
         return
 
     # Use year, month, and encoded city as features
-    X = df[['year', 'month', 'City_encoded', 'Country_encoded']]
-    y = df['AverageTemperature']
+    feats = ['year','year2','month_sin','month_cos','City_encoded', 'Country_encoded']
+    X, y = df[feats], df['AverageTemperature']
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2, random_state = 42)
 
     # Train linear regression model
@@ -240,7 +266,8 @@ def train_city(file_path):
         'model': model,
         'features': ['year', 'month', 'City_encoded', 'Country_encoded'],
         'scaler': scaler,
-        'le': {'City': le_city, 'Country': le_country}
+        'le': {'City': le_city, 'Country': le_country},
+        'features': feats
     }
 
     print("Successfully trained Linear Regression model for city dataset.")
@@ -257,8 +284,8 @@ def train_state(file_path):
         return
 
     # Use year, month, and encoded state as features
-    X = df[['year', 'month', 'State_encoded', 'Country_encoded']]
-    y = df['AverageTemperature']
+    feats = ['year','year2','month_sin','month_cos', 'State_encoded', 'Country_encoded']
+    X, y = df[feats], df['AverageTemperature']
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2, random_state = 42)
 
     # Train linear regression model
@@ -269,7 +296,8 @@ def train_state(file_path):
         'model': model,
         'features': ['year', 'month', 'State_encoded', 'Country_encoded'],
         'scaler': scaler,
-        'le': {'State': le_state, 'Country': le_country}
+        'le': {'State': le_state, 'Country': le_country},
+        'features': feats
     }
 
     print("Successfully trained Linear Regression model for state dataset.")
@@ -310,8 +338,8 @@ def train_all(): # Train all models using one function that's called by one sing
 
 def test_country(file_path):
     df, scaler, le = preprocess_country(file_path, min_year=1800, max_year=2100, sample_frac=1)
-    X = df[['year', 'month', 'Country_encoded']]
-    y = df['AverageTemperature']
+    feats = lr_models['country']['features']
+    X, y = df[feats], df['AverageTemperature']
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
     # Test linear regression model
@@ -331,8 +359,8 @@ def test_country(file_path):
 
 def test_city(file_path):
     df, scaler, (le_city, le_country) = preprocess_city(file_path, min_year=1800, max_year=2100, sample_frac=1)
-    X = df[['year', 'month', 'City_encoded', 'Country_encoded']]
-    y = df['AverageTemperature']
+    feats = lr_models['city']['features']
+    X, y = df[feats], df['AverageTemperature']
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
     # Test linear regression model
@@ -352,8 +380,8 @@ def test_city(file_path):
 
 def test_state(file_path):
     df, scaler, (le_state, le_country) = preprocess_state(file_path, min_year=1800, max_year=2100, sample_frac=1)
-    X = df[['year', 'month', 'State_encoded', 'Country_encoded']]
-    y = df['AverageTemperature']
+    feats = lr_models['state']['features']
+    X, y = df[feats], df['AverageTemperature']
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
     # Test linear regression model
@@ -421,45 +449,38 @@ def predict_lr(dataset, year, month, location=None,
     scaler = info['scaler']
     le = info['le']
 
-    # Scale numerical values (year, month) for prediction
-    if scaler:
-        y_s, m_s = scaler.transform([[year, month]])[0]
-    else:
-        y_s, m_s = year, month
+    # Build dataframe for prediction
+    dfp = pd.DataFrame({'year':[year],'month':[month]})
+    dfp = add_time_features(dfp)
+    num_feats = ['year','year2','month_sin','month_cos']
+    dfp[num_feats] = scaler.transform(dfp[num_feats])
 
-    # Build feature row
+
+    # Encode location
     if ds == 'country':
         if not isinstance(location, str):
             raise ValueError("Country location must be a string.")
-        loc_clean = location.strip().lower()
-        code = le.transform([loc_clean])[0] # Transform to numeric code
-        row = [y_s, m_s, code]
+        code = le.transform([location.strip().lower()])[0]
+        dfp['Country_encoded'] = code
 
     elif ds == 'city':
         if not isinstance(location, dict) or "city" not in location or "country" not in location:
             raise ValueError("City location must be a dictionary with 'city' and 'country' keys.")
-        city_code = le["City"].transform([location["city"].strip().lower()])[0]
-        country_code = le["Country"].transform([location["country"].strip().lower()])[0]
-        row = [y_s, m_s, city_code, country_code]
+        dfp['City_encoded']    = le['City'].transform([location['city'].strip().lower()])[0]
+        dfp['Country_encoded'] = le['Country'].transform([location['country'].strip().lower()])[0]
 
     elif ds == 'state':
         if not isinstance(location, dict) or "state" not in location or "country" not in location:
             raise ValueError("State location must be a dictionary with 'state' and 'country' keys.")
-        state_code = le["State"].transform([location["state"].strip().lower()])[0]
-        country_code = le["Country"].transform([location["country"].strip().lower()])[0]
-        row = [y_s, m_s, state_code, country_code]
+        dfp['State_encoded']   = le['State'].transform([location['state'].strip().lower()])[0]
+        dfp['Country_encoded'] = le['Country'].transform([location['country'].strip().lower()])[0]
 
     else:
         raise ValueError(f"Invalid dataset '{ds}'. Available datasets: {list(lr_models.keys())}")
     
-    # Sanity check for input features
-    print("row:", row)
-    print("features:", features)
-    if len(row) != len(features):
-        raise ValueError(f"Expected {len(features)} features but got built {len(row)}.")
-    
     # Make a prediction using the model
-    prediction = model.predict([row])[0]
+    Xp = dfp[features]
+    prediction = float(model.predict(Xp)[0])
 
     # Plot historical trend for this prediction
     csv_map = {
@@ -474,19 +495,23 @@ def predict_lr(dataset, year, month, location=None,
     raw.dropna(subset=['AverageTemperature'],inplace=True)
 
     if ds=='country':
-        df_loc=raw[raw['Country'].str.strip().str.lower()==loc_clean]
+        filt = raw['Country'].str.strip().str.lower() == location.strip().lower()
     elif ds=='city':
-        df_loc=raw[(raw['City'].str.strip().str.lower()==location['city'].lower()) &
-                   (raw['Country'].str.strip().str.lower()==location['country'].lower())]
+        filt = (
+          (raw['City'].str.strip().str.lower()    == location['city'].strip().lower()) &
+          (raw['Country'].str.strip().str.lower() == location['country'].strip().lower())
+        )
     else:
-        df_loc=raw[(raw['State'].str.strip().str.lower()==location['state'].lower()) &
-                   (raw['Country'].str.strip().str.lower()==location['country'].lower())]
+        filt = (
+          (raw['State'].str.strip().str.lower()   == location['state'].strip().lower()) &
+          (raw['Country'].str.strip().str.lower() == location['country'].strip().lower())
+        )
 
     # Build a true monthly time-series for the given location and restrict to the year
-    df_loc=df_loc[df_loc['dt'].dt.year==year]
-    df_loc['month']=df_loc['dt'].dt.month
-    monthly=(
-        df_loc.groupby('month')['AverageTemperature']
+    year_df = raw.loc[filt & (raw['dt'].dt.year == year), ['dt','AverageTemperature']].copy()
+    year_df['month'] = year_df['dt'].dt.month
+    monthly = (
+      year_df.groupby('month')['AverageTemperature']
              .mean()
              .reindex(range(1,13))
              .reset_index()
@@ -496,16 +521,17 @@ def predict_lr(dataset, year, month, location=None,
     plt.figure(figsize=(10,6))
     plt.scatter(monthly['month'],monthly['AverageTemperature'],label='Monthly Avg',alpha=0.8, color='black')
     lr=LinearRegression()
-    vals=monthly['AverageTemperature'].values.reshape(-1,1)
-    Xm=monthly[['month']].values
-    mask=~np.isnan(monthly['AverageTemperature'])
-    lr.fit(Xm[mask],monthly.loc[mask,'AverageTemperature'])
-    plt.plot(monthly['month'],lr.predict(Xm),linestyle='--',label='Trend', color='red')
-    plt.xticks(range(1,13),['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'])
+    m = monthly[['month']].values
+    y = monthly['AverageTemperature'].values
+    mask = ~np.isnan(y)
+    lr.fit(m[mask], y[mask])
+    plt.plot(monthly['month'], lr.predict(m), linestyle='--', label='Trend')
+    plt.xticks(range(1,13),
+               ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'])
     plt.title(f"{ds.title()} {location!r} — {year} Monthly Temp")
     plt.xlabel("Month")
     plt.ylabel("Avg Temp (°C)")
-    plt.grid(True,alpha=0.3)
+    plt.grid(alpha=0.3)
     plt.legend()
 
     # Save the plot to a file

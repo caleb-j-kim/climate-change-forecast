@@ -5,8 +5,7 @@ import os
 import pandas as pd
 import uuid
 import shutil
-from backend.predictions.linear_regression import train_all, test_all, predict_lr
-# from backend.predictions.random_forest import train_all, test_all, predict_rf
+from backend.predictions.ensemble import train_ensemble, test_ensemble, predict_ensemble
 from functools import lru_cache
 from utils.s3_utils import upload_image_to_s3
 from utils.dynamo_utils import save_forecast_to_dynamodb
@@ -14,10 +13,11 @@ from utils.dynamo_utils import save_forecast_to_dynamodb
 app = Flask(__name__)
 
 def warm_up_models():
-    train_all()
+    train_ensemble()
     print("Successfully trained all models.")
-    test_all()
+    metrics = test_ensemble()
     print("Successfully tested all models.")
+    print("Ensemble method metrics:" + str(metrics))
 
 # Define base directory and paths to different temperature datasets
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -55,12 +55,12 @@ def home():
 
 @app.route("/train", methods=["GET"])
 def train_endpoint():
-    train_all()
+    train_ensemble()
     return "Successfully trained all models."
 
 @app.route("/test", methods=["GET"])
 def test_endpoint():
-    results = test_all()
+    results = test_ensemble()
     return jsonify(["Successfully tested all models."] + results)
 
 @app.route("/predict", methods=["POST"])
@@ -74,8 +74,7 @@ def predict_endpoint():
         loc = payload.get("location")
 
         if ds in ("country", "city", "state"):
-            # change to ensemble method at the end
-            result = predict_lr(ds, yr, mnth, location=loc)
+            result = predict_ensemble(ds, yr, mnth, location=loc)
         else:
             raise ValueError(f"Unknown dataset: {ds}")
         
