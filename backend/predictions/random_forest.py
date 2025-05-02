@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
-# Dictionary to hold all Random Forest models (one per dataset)
+# Dictionary to hold all Random Forest models (one per dataset-location)
 
 rf_models = {}
 
@@ -22,7 +22,7 @@ def preprocess_country(file_path, min_year=None, max_year=None, sample_frac=None
     # Clean up Country strings to avoid mismatch (e.g. "United Sates" vs "   United  States")
     data['Country'] = data['Country'].astype(str).str.strip().str.lower()
     
-    # Extract year, month, and filter years
+    # Extract year, month, and filter by years
     data['year'] = data['dt'].dt.year
     data['month'] = data['dt'].dt.month
     
@@ -32,7 +32,7 @@ def preprocess_country(file_path, min_year=None, max_year=None, sample_frac=None
     if max_year is not None:
         data = data[data['year'] <= max_year]
         
-    # Sampling for speed (e.g. sample_frace=0.2 keeps 20% of the data)
+    # Sampling for speed (e.g. sample_frac=0.2 keeps 20% of the data)
     if sample_frac is not None and 0 < sample_frac < 1.0:
         data = data.sample(frac=sample_frac, random_state=42)
         
@@ -46,7 +46,7 @@ def preprocess_country(file_path, min_year=None, max_year=None, sample_frac=None
     # Encode the Country column
     le = LabelEncoder()
     data['Country_encoded'] = le.fit_transform(data['Country'])
-    print("After cleaning, dataset shape:", data.shape)
+    print("After cleaning, country dataset shape:", data.shape)
     
     return data, scaler, le
 
@@ -107,7 +107,7 @@ def preprocess_city(file_path, min_year=None, max_year=None, sample_frac=None):
     le_country = LabelEncoder()
     data['Country_encoded'] = le_country.fit_transform(data['Country'])
     
-    print("After cleaning, dataset shape:", data.shape)
+    print("After cleaning, city dataset shape:", data.shape)
     return data, scaler, (le_city, le_country)
 
 def preprocess_state(file_path, min_year=None, max_year=None, sample_frac=None):
@@ -119,7 +119,7 @@ def preprocess_state(file_path, min_year=None, max_year=None, sample_frac=None):
     # Remove columns with missing header values
     data = data.loc[:, data.columns.notnull()]
     
-    # Define required columns (Country is a required field as well due to multiple cities having the same name in different countries)
+    # Define required columns (Country is a required field as well due to multiple states having the same name in different countries)
     required = ['dt', 'AverageTemperature', 'State', 'Country']
     
     # Drop rows missing any required field
@@ -167,12 +167,14 @@ def preprocess_state(file_path, min_year=None, max_year=None, sample_frac=None):
     le_country = LabelEncoder()
     data['Country_encoded'] = le_country.fit_transform(data['Country'])
 
-    print("After cleaning, dataset shape:", data.shape)
+    print("After cleaning, state dataset shape:", data.shape)
     return data, scaler, (le_state, le_country)  
 
-# Train models with the use of Early Stopping and Hyperparameter Tuning
+# Train models with the use of Early Stopping and Hyperparameter Tuning to boost performance
 
 def train_country(file_path):
+    
+    # Enter preprocessing first
     try: 
         # use hyperparamter tuning to adjust sample_frac if performance is too low
         data, scaler, le = preprocess_country(file_path, min_year=1800, max_year=2100, sample_frac=1)

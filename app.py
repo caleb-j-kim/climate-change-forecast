@@ -1,10 +1,12 @@
+# py app.py or python app.py to run app on Python backend
+
 from flask import Flask, request, render_template, jsonify
 import os
 import pandas as pd
 import uuid
 import shutil
-from backend.predictions.linear_regression import train_temperature_model
-from backend.predictions.random_forest import train_all, test_all, predict_rf
+from backend.predictions.linear_regression import train_all, test_all, predict_lr
+# from backend.predictions.random_forest import train_all, test_all, predict_rf
 from functools import lru_cache
 from utils.s3_utils import upload_image_to_s3
 from utils.dynamo_utils import save_forecast_to_dynamodb
@@ -63,19 +65,18 @@ def predict_endpoint():
     
     dataset = data.get("dataset", "country").lower()
     try:
-        df = pd.read_csv(path, usecols=["dt", location_type.capitalize()])
-        df = df[df[location_type.capitalize()] == location]
-        df["dt"] = pd.to_datetime(df["dt"])
-        years = df["dt"].dt.year
-        return jsonify({
-            "min_year": int(years.min()),
-            "max_year": int(years.max())
-        })
-    except Exception:
-        # Fallback year range if an error occurs (e.g., missing location)
-        return jsonify({"min_year": 1743, "max_year": 2013})
+        year = int(data.get("year"))
+        month = int(data.get("month"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Please provide valid integer values for 'year' and 'month'."}), 400
+    location = data.get("location", None)
+    
+    try:
+        prediction = predict_lr(dataset, year, month, location) # Should be ensemble method at the end
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
 
-@app.route("/predict")
+'''@app.route("/predict")
 def predict():
     """
     Handles the prediction request and returns a rendered plot image of the forecast.
@@ -145,8 +146,7 @@ def predict():
         "month": month,
         "location": location,
         "predicted_temperature": prediction
-    })
-
+    }) 
 
     except ValueError as e:
         return f"<h3>Input Error: {e}</h3>", 400
@@ -157,6 +157,9 @@ def predict():
     except (TypeError, ValueError):
         return jsonify({"error": "Please provide valid integer values for 'year' and 'month'."}), 400
     location = data.get("location", None)
+
+    (Leave this part out for now)
+'''
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
