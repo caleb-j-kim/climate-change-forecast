@@ -160,7 +160,7 @@ def load_location_options(location_type):
 if __name__ == "__main__":
     
     # Perform both GET calls to train and test all models on startup but only once.
-    #warm_up_models()
+    warm_up_models()
 
     # now start accepting requests
     app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=False)

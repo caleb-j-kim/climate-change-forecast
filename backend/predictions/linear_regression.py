@@ -508,38 +508,65 @@ def predict_lr(dataset, year, month, location=None,
         )
 
     # Build a true monthly time-series for the given location and restrict to the year
-    year_df = raw.loc[filt & (raw['dt'].dt.year == year), ['dt','AverageTemperature']].copy()
+    year_df = raw.loc[filt & (raw['dt'].dt.year==year), ['dt','AverageTemperature']].copy()
     year_df['month'] = year_df['dt'].dt.month
-    monthly = (
-      year_df.groupby('month')['AverageTemperature']
-             .mean()
-             .reindex(range(1,13))
-             .reset_index()
-    )
+    monthly = ( year_df
+                .groupby('month')['AverageTemperature']
+                .mean()
+                .reindex(range(1,13))
+                .reset_index() )
 
     # Plot scatter + trend line
     plt.figure(figsize=(10,6))
-    plt.scatter(monthly['month'],monthly['AverageTemperature'],label='Monthly Avg',alpha=0.8, color='black')
-    lr=LinearRegression()
-    m = monthly[['month']].values
-    y = monthly['AverageTemperature'].values
-    mask = ~np.isnan(y)
-    lr.fit(m[mask], y[mask])
-    plt.plot(monthly['month'], lr.predict(m), linestyle='--', label='Trend')
-    plt.xticks(range(1,13),
-               ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'])
-    plt.title(f"{ds.title()} {location!r} — {year} Monthly Temp")
+
+    if monthly['AverageTemperature'].notna().sum() >= 2:
+        # enough history: scatter + trend
+        plt.scatter(monthly['month'], monthly['AverageTemperature'], label='Monthly Avg', alpha=0.8)
+        lr = LinearRegression()
+        m = monthly[['month']].values
+        y = monthly['AverageTemperature'].values
+        mask = ~np.isnan(y)
+        lr.fit(m[mask], y[mask])
+        plt.plot(monthly['month'], lr.predict(m), linestyle='--', label='Trend')
+    else:
+        # fallback: plot long‐term seasonal avg + model trend
+        df_loc = raw[filt].copy()
+        df_loc['month'] = df_loc['dt'].dt.month
+        seasonal = ( df_loc
+                     .groupby('month')['AverageTemperature']
+                     .mean()
+                     .reindex(range(1,13))
+                     .reset_index() )
+        plt.scatter(seasonal['month'], seasonal['AverageTemperature'],
+                    label='Hist. avg. by month', alpha=0.5, color='gray')
+
+        # build a 12‐month forecast matrix properly
+        months = np.arange(1,13)
+        X_pred_rows = []
+        for mm in months:
+            tmp = pd.DataFrame({'year':[year], 'month':[mm]})
+            tmp = add_time_features(tmp)
+            tmp[num_feats] = scaler.transform(tmp[num_feats])
+            # inject the same encoded values from dfp
+            for feat in features:
+                if feat not in num_feats:
+                    tmp[feat] = dfp[feat].iloc[0]
+            X_pred_rows.append(tmp[features].iloc[0].values)
+        X_pred = np.vstack(X_pred_rows)
+        y_pred = model.predict(X_pred)
+        plt.plot(months, y_pred, linestyle='--', label='Model trend')
+        plt.title(f"No {year} history for {location!r}, showing seasonal + model")
+
+    plt.xticks(range(1,13), ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'])
     plt.xlabel("Month")
     plt.ylabel("Avg Temp (°C)")
     plt.grid(alpha=0.3)
     plt.legend()
-
     # Save the plot to a file
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_dir = "outputs"
     os.makedirs(output_dir, exist_ok=True)
     output_file = f"{output_dir}/linear_regression_prediction_plot_{ds}_{ts}.png"
-
     if save_plot:
         plt.savefig(output_file, bbox_inches='tight')
         print(f"Plot saved to {output_file}.")
