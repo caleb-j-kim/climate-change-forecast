@@ -458,8 +458,12 @@ def predict_lr(dataset, year, month, location=None,
 
     # Encode location
     if ds == 'country':
+        # Handle both string and dictionary format for countries
+        if isinstance(location, dict) and 'country' in location:
+            location = location['country']
         if not isinstance(location, str):
-            raise ValueError("Country location must be a string.")
+            raise ValueError("Country location must be a string or a dictionary with 'country' key.")
+        
         code = le.transform([location.strip().lower()])[0]
         dfp['Country_encoded'] = code
 
@@ -495,7 +499,9 @@ def predict_lr(dataset, year, month, location=None,
     raw.dropna(subset=['AverageTemperature'],inplace=True)
 
     if ds=='country':
-        filt = raw['Country'].str.strip().str.lower() == location.strip().lower()
+        # Handle both string and dict for country location when filtering
+        country_name = location if isinstance(location, str) else location.get('country', '')
+        filt = raw['Country'].str.strip().str.lower() == country_name.strip().lower()
     elif ds=='city':
         filt = (
           (raw['City'].str.strip().str.lower()    == location['city'].strip().lower()) &

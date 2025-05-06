@@ -244,8 +244,8 @@
 
           // Process location data based on dataset type
           if (dataset === "country") {
-            // For country, create a properly structured object
-            location = { country: locationSelect.value };
+            // For country, use the string directly instead of creating an object
+            location = locationSelect.value;
           } else if (dataset === "state") {
             // For state, parse the JSON from the option value
             try {

@@ -144,12 +144,11 @@ def predict_endpoint():
             if not isinstance(loc, dict) or "state" not in loc or "country" not in loc:
                 raise ValueError("State location must be a dictionary with 'state' and 'country' keys.")
         elif ds == "country":
-            if not isinstance(loc, dict) or "country" not in loc:
-                # Convert string to dict if needed
-                if isinstance(loc, str):
-                    loc = {"country": loc}
-                else:
-                    raise ValueError("Country location must be a dictionary with 'country' key.")
+            # Handle both string and dictionary format for country
+            if isinstance(loc, dict) and "country" in loc:
+                loc = loc["country"]  # Extract the country string from the dictionary
+            elif not isinstance(loc, str):
+                raise ValueError("Country location must be a string or a dictionary with 'country' key.")
         
         # Now we're sure loc has the right format
         result = predict_ensemble(ds, yr, mnth, location=loc)
