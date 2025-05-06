@@ -128,20 +128,36 @@ def random_state_forecast():
 def predict_endpoint():
     payload = request.get_json()
     try:
-        ds   = payload["dataset"]
-        yr   = payload["year"]
+        ds = payload["dataset"]
+        yr = payload["year"]
         mnth = payload["month"]
-        loc  = payload.get("location")
-
+        loc = payload.get("location")
+        
         if ds not in DATASETS:
             raise ValueError(f"Unknown dataset: {ds}")
-
+        
+        # Validate location format based on dataset type
+        if ds == "city":
+            if not isinstance(loc, dict) or "city" not in loc or "country" not in loc:
+                raise ValueError("City location must be a dictionary with 'city' and 'country' keys.")
+        elif ds == "state":
+            if not isinstance(loc, dict) or "state" not in loc or "country" not in loc:
+                raise ValueError("State location must be a dictionary with 'state' and 'country' keys.")
+        elif ds == "country":
+            if not isinstance(loc, dict) or "country" not in loc:
+                # Convert string to dict if needed
+                if isinstance(loc, str):
+                    loc = {"country": loc}
+                else:
+                    raise ValueError("Country location must be a dictionary with 'country' key.")
+        
+        # Now we're sure loc has the right format
         result = predict_ensemble(ds, yr, mnth, location=loc)
         summary = summarize_prediction(result)
         result["summary"] = summary
-
+        
         return jsonify(result), 200
-
+        
     except ValueError as ve:
         return jsonify({"error": str(ve)}), 400
     except Exception as e:
@@ -153,9 +169,14 @@ def load_location_options(location_type):
     path = DATASETS.get(location_type)
     if not path or not os.path.exists(path):
         return []
-    col = {"country": "Country", "state": "State", "city": "City"}[location_type]
-    df = pd.read_csv(path, usecols=[col])
-    return sorted(df[col].dropna().unique())
+
+    df = pd.read_csv(path)
+    if location_type == "city":
+        return df[["City", "Country"]].dropna().drop_duplicates().rename(columns={"City": "city", "Country": "country"}).to_dict(orient="records")
+    elif location_type == "state":
+        return df[["State", "Country"]].dropna().drop_duplicates().rename(columns={"State": "state", "Country": "country"}).to_dict(orient="records")
+    elif location_type == "country":
+        return sorted(df["Country"].dropna().unique())
 
 if __name__ == "__main__":
     

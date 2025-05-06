@@ -120,7 +120,6 @@
   <div class="dark-toggle" id="theme-toggle">🌙 Dark Mode</div>
   <div class="container">
     <h1>Climate Forecast</h1>
-
     <form id="forecast-form">
       <label for="type">Location Type:</label>
       <select name="dataset" id="type" required>
@@ -133,7 +132,7 @@
       <select name="location" id="location" required></select>
 
       <label for="year">Year:</label>
-      <input type="number" name="year" id="year" min="1850" max="2013" required>
+      <input type="number" name="year" id="year" required>
 
       <label for="month">Month:</label>
       <select name="month" id="month" required>
@@ -166,12 +165,20 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
     document.addEventListener("DOMContentLoaded", () => {
+      const form = document.getElementById("forecast-form");
+      const spinner = document.getElementById("loading-spinner");
+      const typeSelect = document.getElementById("type");
+      const locationSelect = document.getElementById("location");
+
+      // Initialize with current year
+      document.getElementById("year").value = new Date().getFullYear();
+
+      // Theme toggle functionality
       const storedTheme = localStorage.getItem("theme");
       if (storedTheme === "dark") {
         document.body.classList.add("dark");
         document.getElementById("theme-toggle").textContent = "☀️ Light Mode";
       }
-
       document.getElementById("theme-toggle").addEventListener("click", () => {
         document.body.classList.toggle("dark");
         const isDark = document.body.classList.contains("dark");
@@ -179,45 +186,115 @@
         document.getElementById("theme-toggle").textContent = isDark ? "☀️ Light Mode" : "🌙 Dark Mode";
       });
 
-      const form = document.getElementById("forecast-form");
-      const spinner = document.getElementById("loading-spinner");
-      const typeSelect = document.getElementById("type");
-      const locationSelect = document.getElementById("location");
-
+      // Function to update location dropdown based on selected type
       async function updateLocations() {
+        const dataset = typeSelect.value;
         spinner.style.display = "block";
-        const res = await fetch(`/locations?type=${typeSelect.value}`);
-        const data = await res.json();
-        locationSelect.innerHTML = data.map(loc => `<option value="${loc}">${loc}</option>`).join("");
-        spinner.style.display = "none";
+        locationSelect.innerHTML = ""; // Clear existing options
+
+        try {
+          const res = await fetch(`/locations?type=${dataset}`);
+          const data = await res.json();
+
+          if (dataset === "country") {
+            data.forEach(country => {
+              const option = document.createElement("option");
+              option.textContent = country;
+              // Store the country name directly (not as JSON)
+              option.value = country;
+              locationSelect.appendChild(option);
+            });
+          } else if (dataset === "state") {
+            data.forEach(loc => {
+              const option = document.createElement("option");
+              option.textContent = `${loc.state}, ${loc.country}`;
+              // Store the full object as JSON
+              option.value = JSON.stringify(loc);
+              locationSelect.appendChild(option);
+            });
+          } else if (dataset === "city") {
+            data.forEach(loc => {
+              const option = document.createElement("option");
+              option.textContent = `${loc.city}, ${loc.country}`;
+              // Store the full object as JSON
+              option.value = JSON.stringify(loc);
+              locationSelect.appendChild(option);
+            });
+          }
+        } catch (err) {
+          console.error("Error fetching locations:", err);
+          alert("Failed to load locations. Please try again.");
+        } finally {
+          spinner.style.display = "none";
+        }
       }
 
       updateLocations();
       typeSelect.addEventListener("change", updateLocations);
 
+      // Form submission handler
       form.addEventListener("submit", async e => {
         e.preventDefault();
         spinner.style.display = "block";
 
-        const dataset = typeSelect.value;
-        const location = locationSelect.value;
-        const year = parseInt(document.getElementById("year").value, 10);
-        const month = parseInt(document.getElementById("month").value, 10);
+        try {
+          const dataset = typeSelect.value;
+          let location;
+          let locationText = locationSelect.options[locationSelect.selectedIndex].textContent;
 
-        const res = await fetch("/predict", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ dataset, year, month, location })
-        });
+          // Process location data based on dataset type
+          if (dataset === "country") {
+            // For country, create a properly structured object
+            location = { country: locationSelect.value };
+          } else if (dataset === "state") {
+            // For state, parse the JSON from the option value
+            try {
+              location = JSON.parse(locationSelect.value);
+            } catch (err) {
+              console.error("Error parsing state JSON:", err);
+              throw new Error("Invalid state data format");
+            }
+          } else if (dataset === "city") {
+            // For city, parse the JSON from the option value
+            try {
+              location = JSON.parse(locationSelect.value);
+            } catch (err) {
+              console.error("Error parsing city JSON:", err);
+              throw new Error("Invalid city data format");
+            }
+          }
 
-        const data = await res.json();
-        spinner.style.display = "none";
+          const year = parseInt(document.getElementById("year").value, 10);
+          const month = parseInt(document.getElementById("month").value, 10);
 
-        if (!res.ok) return alert(data.error || "Prediction failed.");
-        renderSummary(data, location, year, month);
-        renderChart(data, location, year, month);
-        document.getElementById("summary-text").textContent = data.summary;
-        document.getElementById("llm-summary").style.display = "block";
+          console.log("Sending payload:", { dataset, year, month, location });
+
+          // Send the request to the backend
+          const res = await fetch("/predict", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ dataset, year, month, location })
+          });
+
+          const data = await res.json();
+
+          if (!res.ok) {
+            console.error("Server error:", data.error);
+            alert(data.error || "Prediction failed.");
+            return;
+          }
+
+          // Render the results
+          renderSummary(data, locationText, year, month);
+          renderChart(data, locationText, year, month);
+          document.getElementById("summary-text").textContent = data.summary;
+          document.getElementById("llm-summary").style.display = "block";
+        } catch (err) {
+          console.error("Error during forecast request:", err);
+          alert("Error: " + (err.message || "Failed to generate forecast"));
+        } finally {
+          spinner.style.display = "none";
+        }
       });
 
       function renderSummary(data, location, year, month) {
@@ -258,20 +335,12 @@
                 text: `Forecast Model Outputs`,
                 font: { size: 16 }
               },
-              legend: { display: false },
-              tooltip: {
-                callbacks: {
-                  label: ctx => `${ctx.label}: ${ctx.parsed.y.toFixed(2)} °C`
-                }
-              }
+              legend: { display: false }
             },
             scales: {
               y: {
                 beginAtZero: true,
-                title: {
-                  display: true,
-                  text: "Temperature (°C)"
-                }
+                title: { display: true, text: "Temperature (°C)" }
               }
             }
           }
