@@ -1,11 +1,12 @@
 # py app.py or python app.py to run app on Python backend
-from flask import Flask, request, render_template, jsonify
+from flask import Flask, request, render_template, jsonify, send_from_directory
 import os
 import pandas as pd
 import traceback
 from functools import lru_cache
 from openai import OpenAI
 from dotenv import load_dotenv
+from flask_cors import CORS
 
 from backend.predictions.ensemble import train_ensemble, test_ensemble, predict_ensemble
 from backend.apis.tomorrow_io import fetch_daily_timeline, fetch_random_city_forecast, fetch_random_country_forecast, fetch_random_state_forecast
@@ -17,6 +18,8 @@ from utils.dynamo_utils import save_forecast_to_dynamodb
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 app = Flask(__name__)
+
+CORS(app)
 
 # === Config ===
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -68,9 +71,13 @@ def summarize_prediction(data):
         return "Summary unavailable due to an AI error."
 
 # === Routes ===
-@app.route("/")
-def index():
-    return render_template("index.html")
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve_react(path):
+    if path != "" and os.path.exists(os.path.join("frontend", "build", path)):
+        return send_from_directory(os.path.join("frontend", "build"), path)
+    else:
+        return send_from_directory(os.path.join("frontend", "build"), "index.html")
 
 @app.route("/locations")
 def locations():
