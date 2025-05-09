@@ -2,19 +2,14 @@ import React, { useState } from 'react';
 import './App.css';
 import ForecastForm from './components/ForecastForm';
 import ForecastResults from './components/ForecastResults';
+import Iridescence from './reactbits/Iridescence';
+
+
 
 function App() {
   const [loading, setLoading] = useState(false);
   const [forecastData, setForecastData] = useState(null);
-  const [darkMode, setDarkMode] = useState(() => {
-    return localStorage.getItem('theme') === 'dark';
-  });
 
-  const toggleDarkMode = () => {
-    const newMode = !darkMode;
-    setDarkMode(newMode);
-    localStorage.setItem('theme', newMode ? 'dark' : 'light');
-  };
 
   const generateForecast = async (formData) => {
     setLoading(true);
@@ -42,10 +37,15 @@ function App() {
   };
 
   return (
-    <div className={`app ${darkMode ? 'dark' : ''}`}>
-      <button className="theme-toggle" onClick={toggleDarkMode}>
-        {darkMode ? '☀️ Light Mode' : '🌙 Dark Mode'}
-      </button>
+    <div className={`app`}>
+      <div style={{ width: '100%', height: '50px', depth: '50px', position: 'relative' }}>
+        <Iridescence
+          color={[1, 1, 1]}
+          mouseReact={false}
+          amplitude={0.1}
+          speed={1.0}
+        />
+      </div>
       <div className="container">
         <h1>Climate Forecast</h1>
         <ForecastForm onSubmit={generateForecast} loading={loading} />

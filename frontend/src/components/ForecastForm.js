@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import BlurText from "../reactbits/BlurText";
 
 function ForecastForm({ onSubmit, loading }) {
     const [locationType, setLocationType] = useState('country');
@@ -8,7 +9,6 @@ function ForecastForm({ onSubmit, loading }) {
     const [month, setMonth] = useState(1);
     const [loadingLocations, setLoadingLocations] = useState(false);
 
-    // Fetch locations when location type changes
     useEffect(() => {
         const fetchLocations = async () => {
             setLoadingLocations(true);
@@ -16,8 +16,6 @@ function ForecastForm({ onSubmit, loading }) {
                 const res = await fetch(`http://localhost:5000/locations?type=${locationType}`);
                 const data = await res.json();
                 setLocations(data);
-
-                // Reset selected location
                 setSelectedLocation('');
             } catch (err) {
                 console.error('Error fetching locations:', err);
@@ -30,23 +28,46 @@ function ForecastForm({ onSubmit, loading }) {
         fetchLocations();
     }, [locationType]);
 
+    const handleLocationTypeChange = (e) => {
+        const newType = e.target.value;
+        setLocationType(newType);
+        setSelectedLocation('');
+    };
+
+    const handleLocationChange = (e) => {
+        const value = e.target.value;
+        setSelectedLocation(value);
+    };
+
     const handleSubmit = (e) => {
         e.preventDefault();
 
-        // Process location data
         let location;
 
         if (locationType === 'country') {
-            location = selectedLocation;
+            if (typeof selectedLocation === 'string' && selectedLocation.startsWith('{')) {
+                try {
+                    const parsed = JSON.parse(selectedLocation);
+                    location = parsed.country;
+                } catch {
+                    location = selectedLocation;
+                }
+            } else {
+                location = selectedLocation;
+            }
         } else {
             try {
-                location = JSON.parse(selectedLocation);
+                location = typeof selectedLocation === 'string' && selectedLocation.startsWith('{')
+                    ? JSON.parse(selectedLocation)
+                    : selectedLocation;
             } catch (err) {
                 console.error(`Error parsing ${locationType} JSON:`, err);
                 alert(`Invalid ${locationType} data format`);
                 return;
             }
         }
+
+        console.log(`Submitting ${locationType} location:`, location);
 
         onSubmit({
             dataset: locationType,
@@ -56,20 +77,20 @@ function ForecastForm({ onSubmit, loading }) {
         });
     };
 
-    const handleLocationChange = (e) => {
-        const value = e.target.value;
-        setSelectedLocation(value);
-        // We'll use the option text directly from the select when needed
-    };
-
     return (
         <form onSubmit={handleSubmit}>
             <div className="form-group">
-                <label htmlFor="type">Location Type:</label>
+                <BlurText
+                    text="Location Type:"
+                    delay={150}
+                    animateBy="words"
+                    direction="top"
+                    className="text-2xl lb-8"
+                />
                 <select
                     id="type"
                     value={locationType}
-                    onChange={(e) => setLocationType(e.target.value)}
+                    onChange={handleLocationTypeChange}
                     required
                 >
                     <option value="country">Country</option>
@@ -79,10 +100,22 @@ function ForecastForm({ onSubmit, loading }) {
             </div>
 
             <div className="form-group">
-                <label htmlFor="location">Location:</label>
+                <BlurText
+                    text="Location:"
+                    delay={150}
+                    animateBy="words"
+                    direction="top"
+                    className="text-2xl lb-8"
+                />
                 <select
                     id="location"
-                    value={selectedLocation}
+                    value={
+                        locationType === 'country'
+                            ? selectedLocation
+                            : typeof selectedLocation === 'object'
+                                ? JSON.stringify(selectedLocation)
+                                : selectedLocation
+                    }
                     onChange={handleLocationChange}
                     required
                     disabled={loadingLocations}
@@ -92,19 +125,19 @@ function ForecastForm({ onSubmit, loading }) {
                         if (locationType === 'country') {
                             return (
                                 <option key={index} value={loc}>
-                                    {loc}
+                                    {String(loc)}
                                 </option>
                             );
                         } else if (locationType === 'state') {
                             return (
                                 <option key={index} value={JSON.stringify(loc)}>
-                                    {loc.state}, {loc.country}
+                                    {String(loc.state ?? '')}, {String(loc.country ?? '')}
                                 </option>
                             );
                         } else if (locationType === 'city') {
                             return (
                                 <option key={index} value={JSON.stringify(loc)}>
-                                    {loc.city}, {loc.country}
+                                    {String(loc.city ?? '')}, {String(loc.country ?? '')}
                                 </option>
                             );
                         }
@@ -115,7 +148,13 @@ function ForecastForm({ onSubmit, loading }) {
             </div>
 
             <div className="form-group">
-                <label htmlFor="year">Year:</label>
+                <BlurText
+                    text="Year:"
+                    delay={150}
+                    animateBy="words"
+                    direction="top"
+                    className="text-2xl lb-8"
+                />
                 <input
                     type="number"
                     id="year"
@@ -126,7 +165,13 @@ function ForecastForm({ onSubmit, loading }) {
             </div>
 
             <div className="form-group">
-                <label htmlFor="month">Month:</label>
+                <BlurText
+                    text="Month:"
+                    delay={150}
+                    animateBy="words"
+                    direction="top"
+                    className="text-2xl lb-8"
+                />
                 <select
                     id="month"
                     value={month}

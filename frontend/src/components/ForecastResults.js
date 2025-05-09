@@ -25,19 +25,46 @@ ChartJS.register(
 );
 
 function ForecastResults({ data }) {
-    // Extract location information based on data format
-    let locationDisplay = '';
-    if (typeof data.location === 'string') {
-        locationDisplay = data.location;
-    } else if (typeof data.location === 'object') {
-        if (data.location.city) {
-            locationDisplay = `${data.location.city}, ${data.location.country}`;
-        } else if (data.location.state) {
-            locationDisplay = `${data.location.state}, ${data.location.country}`;
-        } else if (data.location.country) {
-            locationDisplay = data.location.country;
+    // Safeguard function to extract display location from any format
+    const safeExtractLocation = (locationData) => {
+        console.log("Processing location:", locationData);
+
+        // Handle undefined or null
+        if (!locationData) return "Unknown location";
+
+        // If it's already a string, use it directly
+        if (typeof locationData === 'string') {
+            return locationData;
         }
-    }
+
+        // If it's an object, try to extract meaningful info
+        if (typeof locationData === 'object') {
+            if (locationData.city && locationData.country) {
+                return `${locationData.city}, ${locationData.country}`;
+            } else if (locationData.state && locationData.country) {
+                return `${locationData.state}, ${locationData.country}`;
+            } else if (locationData.country) {
+                return locationData.country;
+            } else {
+                // Last resort - return first non-empty value in the object
+                for (const key in locationData) {
+                    if (locationData[key]) {
+                        return String(locationData[key]);
+                    }
+                }
+            }
+        }
+
+        // Fallback - try string conversion
+        try {
+            return String(locationData);
+        } catch (e) {
+            return "Unknown location";
+        }
+    };
+
+    // Get location display safely
+    const locationDisplay = safeExtractLocation(data.location);
 
     const chartData = {
         labels: ['Linear Regression', 'Random Forest', 'Ensemble'],

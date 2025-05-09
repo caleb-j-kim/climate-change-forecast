@@ -1,4 +1,5 @@
 # py app.py or python app.py to run app on Python backend
+import json
 from flask import Flask, request, render_template, jsonify, send_from_directory
 import os
 import pandas as pd
@@ -140,28 +141,61 @@ def predict_endpoint():
         mnth = payload["month"]
         loc = payload.get("location")
         
+        print(f"Debug - received request: dataset={ds}, year={yr}, month={mnth}, location={loc}")
+        
         if ds not in DATASETS:
             raise ValueError(f"Unknown dataset: {ds}")
         
-        # Validate location format based on dataset type
-        if ds == "city":
+        # Critical fix: Make sure country locations are always strings
+        if ds == "country":
+            # If it's an object with a country field, extract that
+            if isinstance(loc, dict) and "country" in loc:
+                loc = loc["country"]
+                print(f"Debug - converted country object to string: {loc}")
+            # If it's a string that might be a JSON, try to parse it
+            elif isinstance(loc, str) and loc.startswith("{") and loc.endswith("}"):
+                try:
+                    parsed = json.loads(loc)
+                    if isinstance(parsed, dict) and "country" in parsed:
+                        loc = parsed["country"]
+                        print(f"Debug - parsed JSON string to get country: {loc}")
+                except Exception as e:
+                    print(f"Debug - error parsing JSON string: {e}")
+                    # Keep as is if parsing fails
+            
+            # Final check - ensure it's a string
+            if not isinstance(loc, str):
+                raise ValueError(f"Country location must be a string, got {type(loc)}: {loc}")
+            
+        # Validation for city and state
+        elif ds == "city":
             if not isinstance(loc, dict) or "city" not in loc or "country" not in loc:
                 raise ValueError("City location must be a dictionary with 'city' and 'country' keys.")
+                
         elif ds == "state":
             if not isinstance(loc, dict) or "state" not in loc or "country" not in loc:
                 raise ValueError("State location must be a dictionary with 'state' and 'country' keys.")
-        elif ds == "country":
-            # Handle both string and dictionary format for country
-            if isinstance(loc, dict) and "country" in loc:
-                loc = loc["country"]  # Extract the country string from the dictionary
-            elif not isinstance(loc, str):
-                raise ValueError("Country location must be a string or a dictionary with 'country' key.")
         
-        # Now we're sure loc has the right format
+        # Now we're sure loc has the right format for each dataset type
         result = predict_ensemble(ds, yr, mnth, location=loc)
+        
+        # Extra safety - double check the location in the result
+        if ds == "country" and not isinstance(result["location"], str):
+            print(f"Debug - warning: predict_ensemble returned non-string location for country: {result['location']}")
+            
+            # Force it to be a string
+            if isinstance(result["location"], dict):
+                if "country" in result["location"]:
+                    result["location"] = result["location"]["country"]
+                else:
+                    # Last resort, convert to string representation
+                    result["location"] = str(result["location"])
+        
+        # Generate the summary
         summary = summarize_prediction(result)
         result["summary"] = summary
         
+        print(f"Debug - returning result with location: {result['location']}")
         return jsonify(result), 200
         
     except ValueError as ve:
